@@ -219,6 +219,7 @@ __marimo__/
 
 # DuckDB database temporary files
 *.duckdb.tmp
+*.duckdb
 
 # Evidence.dev build files
 .evidence/

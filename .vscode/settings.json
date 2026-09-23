@@ -1,0 +1,17 @@
+{
+    "workbench.editorAssociations": {
+        "*.parquet": "duckdb.dataFileViewer",
+        "*.csv": "duckdb.dataFileViewer",
+        "*.tsv": "duckdb.dataFileViewer",
+        "*.xlsx": "duckdb.dataFileViewer"
+    },
+    "duckdb.databases": [
+        {
+            "alias": "agri_ghana",
+            "type": "file",
+            "path": "c:\\Users\\qwarm\\Desktop\\marketpulse-ghana\\agri_ghana.duckdb",
+            "attached": true
+        }
+    ],
+    "duckdb.defaultDatabase": "agri_ghana"
+}
