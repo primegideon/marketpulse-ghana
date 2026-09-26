@@ -7,7 +7,7 @@ def main():
     con = duckdb.connect(db_path)
 
     print("Running transformation and creating stg_wfp_prices...")
-
+    
     sql_query = """
     CREATE OR REPLACE TABLE stg_wfp_prices AS
     WITH cleaned_data AS (
@@ -27,47 +27,35 @@ def main():
         SELECT 
             *,
             CASE 
-                WHEN raw_unit = 'kg' THEN 1.0
-                WHEN raw_unit LIKE '%kg%' 
-                    THEN CAST(regexp_extract(raw_unit, '[0-9]+') AS DOUBLE)
-                WHEN raw_unit LIKE '100 tuber%' THEN 350.0
-                WHEN raw_unit LIKE '%bunch%' THEN 20.0
-                WHEN raw_unit LIKE '%pcs%' OR raw_unit LIKE '%pieces%' THEN 15.0
+                WHEN raw_unit LIKE '%tuber%' THEN 3.5
+                WHEN raw_unit LIKE 'medium tub%' THEN 20.0
+                WHEN raw_unit LIKE 'small tub%' THEN 10.0
+                WHEN raw_unit LIKE '250 kg%' THEN 250.0
+                WHEN raw_unit LIKE '100 kg%' THEN 100.0
+                WHEN raw_unit LIKE '109 kg%' THEN 109.0
+                WHEN raw_unit LIKE '91 kg%' THEN 91.0
+                WHEN raw_unit LIKE '84 kg%' THEN 84.0
+                WHEN raw_unit LIKE '50 kg%' THEN 50.0
+                WHEN raw_unit LIKE '1 kg%' OR raw_unit = 'kg' THEN 1.0
                 ELSE 1.0
-            END AS kg_conversion_factor,
-
-            CASE 
-                WHEN raw_unit = 'kg' THEN 'exact'
-                WHEN raw_unit LIKE '%kg%' THEN 'exact'
-                WHEN raw_unit LIKE '100 tuber%' OR raw_unit LIKE '%bunch%' OR raw_unit LIKE '%pcs%' OR raw_unit LIKE '%pieces%' 
-                    THEN 'estimated'
-                ELSE 'unrecognized_fallback'
-            END AS conversion_confidence
+            END AS kg_conversion_factor
         FROM cleaned_data
     )
     SELECT 
         *,
-        ROUND(raw_price_ghs / kg_conversion_factor, 4) AS price_per_kg_ghs
+        ROUND(raw_price_ghs / kg_conversion_factor, 2) AS price_per_kg_ghs
     FROM converted_data;
     """
-
+    
     con.execute(sql_query)
 
     row_count = con.execute("SELECT COUNT(*) FROM stg_wfp_prices").fetchone()[0]
     print(f"\nTransformation complete. Total records in stg_wfp_prices: {row_count:,}")
 
-    confidence_breakdown = con.execute("""
-        SELECT conversion_confidence, COUNT(*) AS row_count 
-        FROM stg_wfp_prices 
-        GROUP BY conversion_confidence
-    """).fetchdf()
-    print("\nConversion confidence breakdown:")
-    print(confidence_breakdown.to_string(index=False))
-
     print("\nData Preview (5 rows):")
     sample_df = con.execute("SELECT * FROM stg_wfp_prices LIMIT 5").fetchdf()
     print(sample_df.to_string(index=False))
-
+    
     con.close()
 
 if __name__ == "__main__":
