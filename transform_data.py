@@ -26,25 +26,42 @@ def main():
     converted_data AS (
         SELECT 
             *,
+            -- ----------------------------------------------------------------
+            -- KG Conversion Factor Logic
+            -- Purpose: normalise every price to a per-1-kg basis.
+            --
+            -- Unit reference (from WFP Ghana dataset audit):
+            --   'kg'           -> 1 kg  (retail, already per kg)
+            --   'N kg'         -> N kg  (wholesale bag of N kg)
+            --   'bunch'        -> 12 kg (standard WFP plantain bunch weight)
+            --   '100 tubers'   -> 50 kg (cassava: ~0.5 kg avg per tuber)
+            --   '30 pcs'       -> 30    (eggs: price per tray / 30 eggs)
+            --                    NOTE: eggs not in staple scope (won't affect GBVI)
+            -- ----------------------------------------------------------------
             CASE 
-                WHEN raw_unit LIKE '%tuber%' THEN 3.5
-                WHEN raw_unit LIKE 'medium tub%' THEN 20.0
-                WHEN raw_unit LIKE 'small tub%' THEN 10.0
-                WHEN raw_unit LIKE '250 kg%' THEN 250.0
-                WHEN raw_unit LIKE '100 kg%' THEN 100.0
-                WHEN raw_unit LIKE '109 kg%' THEN 109.0
-                WHEN raw_unit LIKE '91 kg%' THEN 91.0
-                WHEN raw_unit LIKE '84 kg%' THEN 84.0
-                WHEN raw_unit LIKE '50 kg%' THEN 50.0
-                WHEN raw_unit LIKE '1 kg%' OR raw_unit = 'kg' THEN 1.0
+                WHEN raw_unit = 'kg' THEN 1.0
+                WHEN raw_unit LIKE '%bunch%' THEN 12.0
+                WHEN raw_unit LIKE '%tuber%' THEN 50.0
+                WHEN raw_unit = '30 pcs' THEN 30.0
+                WHEN REGEXP_MATCHES(raw_unit, r'^\d+\s*kg$')
+                    THEN TRY_CAST(REGEXP_EXTRACT(raw_unit, r'^(\d+)', 1) AS DOUBLE)
                 ELSE 1.0
             END AS kg_conversion_factor
         FROM cleaned_data
     )
     SELECT 
-        *,
-        ROUND(raw_price_ghs / kg_conversion_factor, 2) AS price_per_kg_ghs
-    FROM converted_data;
+        record_date,
+        region,
+        district,
+        market_name,
+        commodity_name,
+        raw_unit,
+        price_type,
+        raw_price_ghs,
+        kg_conversion_factor,
+        GREATEST(0.01, LEAST(500.0, ROUND(raw_price_ghs / NULLIF(kg_conversion_factor, 0), 2))) AS price_per_kg_ghs
+    FROM converted_data
+    WHERE raw_price_ghs > 0 AND kg_conversion_factor > 0;
     """
     
     con.execute(sql_query)
@@ -52,8 +69,27 @@ def main():
     row_count = con.execute("SELECT COUNT(*) FROM stg_wfp_prices").fetchone()[0]
     print(f"\nTransformation complete. Total records in stg_wfp_prices: {row_count:,}")
 
-    print("\nData Preview (5 rows):")
-    sample_df = con.execute("SELECT * FROM stg_wfp_prices LIMIT 5").fetchdf()
+    print("\n--- Unit -> Conversion Factor Mapping (verify all look right) ---")
+    mapping_df = con.execute("""
+        SELECT raw_unit, kg_conversion_factor, COUNT(*) as cnt
+        FROM stg_wfp_prices
+        GROUP BY raw_unit, kg_conversion_factor
+        ORDER BY cnt DESC
+    """).fetchdf()
+    print(mapping_df.to_string(index=False))
+
+    print("\n--- Price per KG range by commodity (sanity check) ---")
+    sample_df = con.execute("""
+        SELECT 
+            commodity_name,
+            ROUND(MIN(price_per_kg_ghs),2) AS min_ghs,
+            ROUND(MAX(price_per_kg_ghs),2) AS max_ghs,
+            ROUND(AVG(price_per_kg_ghs),2) AS avg_ghs,
+            COUNT(*) AS n
+        FROM stg_wfp_prices
+        GROUP BY commodity_name
+        ORDER BY avg_ghs DESC
+    """).fetchdf()
     print(sample_df.to_string(index=False))
     
     con.close()
