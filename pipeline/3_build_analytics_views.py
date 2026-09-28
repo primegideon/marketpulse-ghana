@@ -1,36 +1,34 @@
+"""
+Analytics Views Builder Module
+==============================
+Constructs foundational analytical views in DuckDB for downstream BI reporting.
+1. `fact_monthly_prices`: Generates aggregated monthly averages, tracking rolling trends and MoM%.
+2. `fact_market_spreads`: Isolates the markup spread between agricultural producing regions and urban demand centers.
+3. `fact_gbvi_index`: Computes the Ghana Basket Volatility Index, a proprietary 0-100 composite volatility metric.
+"""
+
 import duckdb
 import pandas as pd
+import logging
 
-# ============================================================
-# MarketPulse Ghana — Analytics Views Builder
-# Builds 3 DuckDB views from stg_wfp_prices:
-#   1. fact_monthly_prices  — MoM%, rolling averages
-#   2. fact_market_spreads  — producing vs. urban price gap
-#   3. fact_gbvi_index      — Ghana Basket Volatility Index (0-100)
-# ============================================================
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 CORE_STAPLES = ("maize", "maize (yellow)", "rice (local)", "rice (imported)",
                 "cassava", "plantains (apem)", "plantains (apentu)", "tomatoes (local)", "tomatoes (navrongo)")
 
-# Regions classified by agricultural role (Ghana geography)
+# Geographic classifications for supply chain spread calculation
 PRODUCING_REGIONS = ("brong ahafo", "northern", "upper east", "upper west", "volta")
 URBAN_REGIONS     = ("greater accra", "ashanti")
 
 def main():
     db_path = "agri_ghana.duckdb"
     con = duckdb.connect(db_path)
-    print(f"Connected to {db_path}.\n")
+    logging.info(f"Database connection established: {db_path}")
 
     # ----------------------------------------------------------
     # VIEW 1: fact_monthly_prices
-    # Groups stg_wfp_prices into one monthly average per
-    # (commodity, region), then computes:
-    #   - MoM% change compared to previous month
-    #   - 3-month rolling average (smoothed trend)
-    #   - 6-month rolling average (longer-term trend)
-    # Applies outlier guard: only prices 0.05–500 GHS/kg included.
     # ----------------------------------------------------------
-    print("Building fact_monthly_prices...")
+    logging.info("Constructing view: 'fact_monthly_prices'...")
     con.execute("""
     CREATE OR REPLACE VIEW fact_monthly_prices AS
     WITH monthly AS (
@@ -44,7 +42,7 @@ def main():
         FROM stg_wfp_prices
         WHERE price_per_kg_ghs BETWEEN 0.05 AND 500.0
         GROUP BY DATE_TRUNC('month', record_date)::DATE, commodity_name, region, price_type
-        HAVING COUNT(*) >= 2   -- require at least 2 records per month to avoid single-point artifacts
+        HAVING COUNT(*) >= 2   -- Exclude sparse data points to prevent single-observation skew
     )
     SELECT
         month_start,
@@ -73,30 +71,12 @@ def main():
     FROM monthly;
     """)
     n = con.execute("SELECT COUNT(*) FROM fact_monthly_prices").fetchone()[0]
-    print(f"  fact_monthly_prices: {n:,} rows")
-    df = con.execute("""
-        SELECT * FROM fact_monthly_prices
-        WHERE commodity_name = 'maize' AND region = 'brong ahafo'
-        ORDER BY month_start LIMIT 6
-    """).fetchdf()
-    print("  Sample (maize, Brong Ahafo):")
-    print(df[["month_start","avg_price_per_kg_ghs","rolling_3m_avg","mom_inflation_pct"]].to_string(index=False))
+    logging.info(f"Deployed 'fact_monthly_prices' with {n:,} operational rows.")
 
     # ----------------------------------------------------------
     # VIEW 2: fact_market_spreads
-    # Measures the price gap between urban consumer regions
-    # and rural producing regions for each commodity each month.
-    #
-    # Ghana agricultural geography:
-    #   PRODUCING: Brong Ahafo, Northern, Upper East, Upper West, Volta
-    #   URBAN:     Greater Accra, Ashanti (Kumasi)
-    #
-    # A positive spread_margin_pct means urban consumers pay
-    # more than farm-gate prices — this is normal and captures
-    # transport/storage markup. A very high spread signals
-    # supply chain inefficiency.
     # ----------------------------------------------------------
-    print("\nBuilding fact_market_spreads...")
+    logging.info("Constructing view: 'fact_market_spreads'...")
     con.execute(f"""
     CREATE OR REPLACE VIEW fact_market_spreads AS
     WITH monthly AS (
@@ -109,7 +89,7 @@ def main():
         FROM stg_wfp_prices
         WHERE price_per_kg_ghs BETWEEN 0.05 AND 500.0
         GROUP BY DATE_TRUNC('month', record_date)::DATE, commodity_name, region, price_type
-        HAVING COUNT(*) >= 2   -- require at least 2 records to avoid single-market noise
+        HAVING COUNT(*) >= 2
     ),
     urban AS (
         SELECT month_start, commodity_name, price_type, ROUND(AVG(avg_price), 4) AS urban_avg_price
@@ -142,38 +122,12 @@ def main():
     ORDER BY u.month_start, u.commodity_name;
     """)
     n = con.execute("SELECT COUNT(*) FROM fact_market_spreads").fetchone()[0]
-    print(f"  fact_market_spreads: {n:,} rows")
-    df = con.execute("""
-        SELECT * FROM fact_market_spreads
-        WHERE commodity_name = 'maize'
-        ORDER BY month_start DESC LIMIT 6
-    """).fetchdf()
-    print("  Sample (maize, latest 6 months):")
-    print(df.to_string(index=False))
+    logging.info(f"Deployed 'fact_market_spreads' with {n:,} operational rows.")
 
     # ----------------------------------------------------------
     # VIEW 3: fact_gbvi_index
-    # Ghana Basket Volatility Index — a single 0-100 score
-    # measuring food price stability each month across the
-    # 5 core staple crop groups defined in the project plan:
-    #   Maize | Rice | Cassava | Plantain | Tomatoes
-    #
-    # Formula (composite):
-    #   60% weight: average absolute MoM% change across staples
-    #               (how much prices moved on average)
-    #   40% weight: STDDEV of MoM% across staples
-    #               (how differently each crop behaved)
-    #
-    # Each component is scaled to [0,100] before weighting:
-    #   avg_abs_mom  / 30.0 * 100  (30% avg move = score 100)
-    #   stddev_mom   / 25.0 * 100  (25% stddev   = score 100)
-    #
-    # Risk bands (matching project plan):
-    #   0–30   → Stable Price Environment
-    #   31–70  → Moderate Inflationary Pressure
-    #   71–100 → High Food Volatility Alert
     # ----------------------------------------------------------
-    print("\nBuilding fact_gbvi_index...")
+    logging.info("Constructing view: 'fact_gbvi_index'...")
     staples_tuple = ("maize", "maize (yellow)", "rice (local)", "rice (imported)",
                      "rice (paddy)", "cassava", "plantains (apem)", "plantains (apentu)",
                      "tomatoes (local)", "tomatoes (navrongo)")
@@ -189,7 +143,7 @@ def main():
           AND commodity_name IN {staples_tuple}
           AND price_type = 'retail'
         GROUP BY DATE_TRUNC('month', record_date)::DATE, commodity_name
-        HAVING COUNT(*) >= 2   -- require at least 2 observations nationally per month
+        HAVING COUNT(*) >= 2
     ),
     with_mom AS (
         SELECT
@@ -213,7 +167,7 @@ def main():
         FROM with_mom
         WHERE mom_pct IS NOT NULL
         GROUP BY month_start
-        HAVING COUNT(commodity_name) >= 2  -- need at least 2 commodities for meaningful score
+        HAVING COUNT(commodity_name) >= 2
     )
     SELECT
         month_start,
@@ -221,7 +175,6 @@ def main():
         avg_abs_mom_pct,
         stddev_mom_pct,
         avg_mom_pct,
-        -- Composite GBVI: 60% magnitude + 40% spread, bounded [0,100]
         ROUND(
             LEAST(100.0, GREATEST(0.0,
                 0.6 * LEAST(100.0, avg_abs_mom_pct / 30.0 * 100.0)
@@ -243,33 +196,9 @@ def main():
     ORDER BY month_start;
     """)
     n = con.execute("SELECT COUNT(*) FROM fact_gbvi_index").fetchone()[0]
-    print(f"  fact_gbvi_index: {n:,} rows")
+    logging.info(f"Deployed 'fact_gbvi_index' with {n:,} operational rows.")
 
-    df = con.execute("SELECT * FROM fact_gbvi_index ORDER BY month_start DESC LIMIT 12").fetchdf()
-    print("  Latest 12 months:")
-    print(df.to_string(index=False))
-
-    print("\n--- GBVI Score Distribution ---")
-    dist = con.execute("""
-        SELECT risk_band, COUNT(*) as months,
-               ROUND(MIN(gbvi_score),1) as min_score,
-               ROUND(MAX(gbvi_score),1) as max_score,
-               ROUND(AVG(gbvi_score),1) as avg_score
-        FROM fact_gbvi_index
-        GROUP BY risk_band
-        ORDER BY avg_score
-    """).fetchdf()
-    print(dist.to_string(index=False))
-
-    print("\n--- fact_market_spreads: MoM inflation across ALL commodities ---")
-    mom_check = con.execute("""
-        SELECT MIN(mom_inflation_pct), MAX(mom_inflation_pct), 
-               COUNT(CASE WHEN ABS(mom_inflation_pct) > 100 THEN 1 END) as extreme_count
-        FROM fact_monthly_prices WHERE mom_inflation_pct IS NOT NULL
-    """).fetchdf()
-    print(mom_check.to_string(index=False))
-
-    print("\nAll views rebuilt successfully.")
+    logging.info("Analytics Views Pipeline executed successfully.")
     con.close()
 
 if __name__ == "__main__":

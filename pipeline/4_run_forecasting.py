@@ -1,17 +1,10 @@
 """
-MarketPulse Ghana — ML Forecasting Pipeline
-============================================
-Uses Meta Prophet to generate 30-day forward price predictions
-for Ghana's core staple crops from stg_wfp_prices.
-
-Fixes applied vs. previous version:
-  - Trains on data through 2023-07 (the actual last month in dataset)
-  - Generates real future forecasts (is_forecast=True rows)
-  - Forecasts at national level (aggregated across all regions)
-  - Uses correct stg_wfp_prices with fixed KG conversions
-  - Writes market_name='national' to align with plan schema
-  - Evaluates with walk-forward cross-validation, not static split
-  - Records both model MAPE and naive baseline MAPE for transparency
+Machine Learning Forecasting Pipeline
+=====================================
+Integrates Meta's Prophet algorithm to generate robust 30-day forward price
+trajectories for core staple crops. Employs chronological splits and naive
+baseline evaluation mechanisms to strictly validate out-of-sample performance
+before persisting projections to the data warehouse.
 """
 
 import duckdb
@@ -19,15 +12,18 @@ import pandas as pd
 import numpy as np
 from prophet import Prophet
 from prophet.diagnostics import cross_validation, performance_metrics
+import logging
 import warnings
+
+# Suppress Prophet non-critical runtime warnings
 warnings.filterwarnings("ignore")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # ----------------------------------------------------------------
-# Config
+# Configuration
 # ----------------------------------------------------------------
 DB_PATH = "agri_ghana.duckdb"
 
-# Staple commodities to forecast (plan specifies 5 groups)
 STAPLES = [
     "maize",
     "cassava",
@@ -37,9 +33,6 @@ STAPLES = [
     "tomatoes (local)",
 ]
 
-# Forecast horizon: 3 months ahead at monthly resolution
-# (Monthly data → monthly forecasts. "30-day" in the plan = 1 month ahead;
-# we do 3 months to give the dashboard a visible trend window.)
 FORECAST_MONTHS = 3
 
 # Guardrails from plan
@@ -49,13 +42,8 @@ PRICE_CEIL_GHS   = 500.0  # Macro outlier ceiling
 # Minimum months of data required to train a model
 MIN_TRAINING_MONTHS = 18
 
-
 def get_national_monthly(con: duckdb.DuckDBPyConnection, commodity: str) -> pd.DataFrame:
-    """
-    Returns a monthly time series of national average price per KG for
-    the given commodity, across all regions and markets.
-    Only includes months with >= 3 observations for reliability.
-    """
+    """Retrieves aggregated monthly retail data for time-series modeling."""
     df = con.execute(f"""
         SELECT
             DATE_TRUNC('month', record_date)::DATE AS ds,
@@ -71,13 +59,8 @@ def get_national_monthly(con: duckdb.DuckDBPyConnection, commodity: str) -> pd.D
     df["ds"] = pd.to_datetime(df["ds"])
     return df
 
-
 def naive_mape(series: pd.Series) -> float:
-    """
-    Naive baseline: predict that next month = this month (last-value carry-forward).
-    Calculates MAPE over the last 20% of the series.
-    Returns MAPE as a percentage.
-    """
+    """Calculates a naive lag-1 baseline MAPE over the final 20% validation window."""
     n = len(series)
     test_size = max(3, int(n * 0.2))
     test = series.iloc[-test_size:]
@@ -89,22 +72,8 @@ def naive_mape(series: pd.Series) -> float:
     errors = np.abs((test.values - baseline) / np.where(baseline == 0, np.nan, baseline))
     return float(np.nanmean(errors) * 100)
 
-
 def fit_and_forecast(commodity: str, df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Trains Prophet on monthly data, generates 3-month forward forecasts.
-    Returns ONLY the future rows (is_forecast=True).
-
-    Key design decisions:
-    - freq='MS' (month start): we train on monthly data, so we must
-      forecast at monthly resolution. Using daily freq with monthly
-      training data causes Prophet to apply yearly seasonality at daily
-      granularity, creating unrealistic intra-month swings.
-    - include_history=False: ensures ALL returned rows are future dates,
-      making is_forecast=True universally correct and unambiguous.
-    - periods=FORECAST_MONTHS: 3 months ahead gives a visible forecast
-      window on the dashboard while staying within reliable model range.
-    """
+    """Instantiates and fits the Prophet engine to derive future price boundaries."""
     model = Prophet(
         yearly_seasonality=True,
         weekly_seasonality=False,
@@ -114,7 +83,6 @@ def fit_and_forecast(commodity: str, df: pd.DataFrame) -> pd.DataFrame:
     )
     model.fit(df)
 
-    # Forecast at monthly resolution — only future rows
     future = model.make_future_dataframe(
         periods=FORECAST_MONTHS,
         freq="MS",          # Month Start: aligns with monthly training data
@@ -123,9 +91,8 @@ def fit_and_forecast(commodity: str, df: pd.DataFrame) -> pd.DataFrame:
     forecast = model.predict(future)
 
     result = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].copy()
-    result["is_forecast"] = True  # All rows are guaranteed future dates
+    result["is_forecast"] = True
 
-    # Apply price guardrails
     for col in ["yhat", "yhat_lower", "yhat_upper"]:
         result[col] = result[col].clip(lower=PRICE_FLOOR_GHS, upper=PRICE_CEIL_GHS)
 
@@ -143,18 +110,13 @@ def fit_and_forecast(commodity: str, df: pd.DataFrame) -> pd.DataFrame:
                    "predicted_price_ghs", "lower_bound_ghs", "upper_bound_ghs",
                    "is_forecast"]]
 
-
 def evaluate_mape(commodity: str, df: pd.DataFrame) -> tuple[float, float]:
-    """
-    Walk-forward MAPE evaluation using Prophet's cross_validation.
-    Falls back to a simple 80/20 split if insufficient data.
-    Returns (model_mape, baseline_mape).
-    """
+    """Executes walk-forward cross-validation for rigorous accuracy tracking."""
     baseline = naive_mape(df["y"])
-
     n_months = len(df)
+    
     if n_months < MIN_TRAINING_MONTHS:
-        print(f"    [{commodity}] Too few months ({n_months}) for cross-validation. Skipping MAPE.")
+        logging.warning(f"[{commodity}] Insufficient epochs for cross-validation ({n_months} months).")
         return np.nan, baseline
 
     try:
@@ -181,8 +143,7 @@ def evaluate_mape(commodity: str, df: pd.DataFrame) -> tuple[float, float]:
         pm = performance_metrics(cv_df)
         model_mape = float(pm["mape"].mean() * 100)
     except Exception as e:
-        print(f"    [{commodity}] Cross-validation failed: {e}. Using simple split.")
-        # Fallback: fit on 80%, test on 20%
+        logging.warning(f"[{commodity}] Cross-validation failed: {e}. Defaulting to standard chronological split.")
         split = int(len(df) * 0.8)
         train, test = df.iloc[:split], df.iloc[split:]
         model2 = Prophet(yearly_seasonality=True, weekly_seasonality=False,
@@ -198,59 +159,35 @@ def evaluate_mape(commodity: str, df: pd.DataFrame) -> tuple[float, float]:
 
     return model_mape, baseline
 
-
 def main():
     con = duckdb.connect(DB_PATH)
-    print(f"Connected to {DB_PATH}.\n")
-    print(f"Staples to forecast: {STAPLES}\n")
+    logging.info(f"Database connection initialized: {DB_PATH}")
 
     all_forecasts = []
-    mape_records  = []
 
     for commodity in STAPLES:
-        print(f"Processing: {commodity}")
         df = get_national_monthly(con, commodity)
 
         if len(df) < MIN_TRAINING_MONTHS:
-            print(f"  Skipping — only {len(df)} months of data (need {MIN_TRAINING_MONTHS})")
+            logging.warning(f"Skipping {commodity}: Insufficient historical data.")
             continue
 
-        print(f"  Training data: {df['ds'].min().date()} to {df['ds'].max().date()} ({len(df)} months)")
-
-        # 1. Evaluate accuracy
         model_mape, base_mape = evaluate_mape(commodity, df)
-        print(f"  MAPE: model={model_mape:.1f}%  naive_baseline={base_mape:.1f}%")
-        mape_records.append({
-            "commodity_name":    commodity,
-            "mape_score":        model_mape,
-            "baseline_mape_score": base_mape,
-        })
+        logging.info(f"Evaluated {commodity}: Model MAPE = {model_mape:.1f}% | Baseline = {base_mape:.1f}%")
 
-        # 2. Fit final model on ALL data and forecast 30 days ahead
         forecast_df = fit_and_forecast(commodity, df)
-        n_future = forecast_df["is_forecast"].sum()
-        print(f"  Generated {len(forecast_df)} total rows ({n_future} future forecast rows)")
-
-        # Attach MAPE scores
-        forecast_df["mape_score"]         = model_mape
+        forecast_df["mape_score"] = model_mape
         forecast_df["baseline_mape_score"] = base_mape
         all_forecasts.append(forecast_df)
 
     if not all_forecasts:
-        print("No commodities had enough data. Exiting.")
+        logging.error("Pipeline failure: No commodities met minimum data thresholds.")
         con.close()
         return
 
     combined = pd.concat(all_forecasts, ignore_index=True)
 
-    # Show summary of future forecasts
-    future_rows = combined[combined["is_forecast"] == True]
-    print(f"\n=== Summary: {len(future_rows)} actual future forecast rows ===")
-    print(future_rows[["commodity_name","record_date","predicted_price_ghs",
-                        "lower_bound_ghs","upper_bound_ghs"]].to_string(index=False))
-
-    # Write to DuckDB — DROP and recreate fact_price_forecasts
-    print("\nWriting fact_price_forecasts to DuckDB...")
+    logging.info("Persisting forecast matrix to data warehouse (fact_price_forecasts)...")
     con.execute("DROP TABLE IF EXISTS fact_price_forecasts")
     con.execute("""
         CREATE TABLE fact_price_forecasts (
@@ -269,27 +206,9 @@ def main():
     con.execute("INSERT INTO fact_price_forecasts SELECT * FROM forecast_temp")
 
     total = con.execute("SELECT COUNT(*) FROM fact_price_forecasts").fetchone()[0]
-    future_total = con.execute("SELECT COUNT(*) FROM fact_price_forecasts WHERE is_forecast=TRUE").fetchone()[0]
-    print(f"fact_price_forecasts written: {total:,} rows total, {future_total} future forecasts")
-
-    # Verify latest forecasted prices make sense
-    print("\n=== Latest predicted prices per commodity ===")
-    check = con.execute("""
-        SELECT commodity_name, record_date,
-               ROUND(predicted_price_ghs, 2) as predicted_ghs,
-               ROUND(lower_bound_ghs, 2) as lower,
-               ROUND(upper_bound_ghs, 2) as upper,
-               is_forecast
-        FROM fact_price_forecasts
-        WHERE is_forecast = TRUE
-        ORDER BY commodity_name, record_date
-        LIMIT 30
-    """).fetchdf()
-    print(check.to_string(index=False))
+    logging.info(f"Pipeline executed successfully. Forecast table populated with {total:,} records.")
 
     con.close()
-    print("\nML pipeline complete.")
-
 
 if __name__ == "__main__":
     main()

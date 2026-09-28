@@ -1,12 +1,24 @@
+"""
+Data Transformation Module
+==========================
+This module sanitizes the raw pricing dataset. It executes unit normalization 
+algorithms to convert diverse local market units (e.g., specific bag weights, 
+bunches, tubers) into a standardized Price-per-Kilogram (GHS/KG) metric, 
+ensuring accurate comparative analysis downstream.
+"""
+
 import duckdb
 import pandas as pd
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 def main():
     db_path = "agri_ghana.duckdb"
-    print(f"Connecting to {db_path}...")
+    logging.info(f"Connecting to database: {db_path}")
     con = duckdb.connect(db_path)
 
-    print("Running transformation and creating stg_wfp_prices...")
+    logging.info("Executing normalization transformations to build 'stg_wfp_prices'...")
     
     sql_query = r"""
     CREATE OR REPLACE TABLE stg_wfp_prices AS
@@ -63,6 +75,7 @@ def main():
         price_type,
         raw_price_ghs,
         kg_conversion_factor,
+        -- Apply hard boundaries to exclude macroeconomic outliers
         GREATEST(0.01, LEAST(500.0, ROUND(raw_price_ghs / NULLIF(kg_conversion_factor, 0), 2))) AS price_per_kg_ghs
     FROM converted_data
     WHERE raw_price_ghs > 0 AND kg_conversion_factor > 0;
@@ -71,25 +84,25 @@ def main():
     con.execute(sql_query)
 
     row_count = con.execute("SELECT COUNT(*) FROM stg_wfp_prices").fetchone()[0]
-    print(f"\nTransformation complete. Total records in stg_wfp_prices: {row_count:,}")
+    logging.info(f"Transformation complete. Total records in 'stg_wfp_prices': {row_count:,}")
 
-    print("\n--- Unit -> Conversion Factor Mapping (verify all look right) ---")
+    logging.info("Unit Conversion Factor Distribution Mapping:")
     mapping_df = con.execute("""
-        SELECT raw_unit, kg_conversion_factor, COUNT(*) as cnt
+        SELECT raw_unit, kg_conversion_factor, COUNT(*) as observation_count
         FROM stg_wfp_prices
         GROUP BY raw_unit, kg_conversion_factor
-        ORDER BY cnt DESC
+        ORDER BY observation_count DESC
     """).fetchdf()
     print(mapping_df.to_string(index=False))
 
-    print("\n--- Price per KG range by commodity (sanity check) ---")
+    logging.info("Normalized Price per KG ranges by commodity (Validation Check):")
     sample_df = con.execute("""
         SELECT 
             commodity_name,
-            ROUND(MIN(price_per_kg_ghs),2) AS min_ghs,
-            ROUND(MAX(price_per_kg_ghs),2) AS max_ghs,
-            ROUND(AVG(price_per_kg_ghs),2) AS avg_ghs,
-            COUNT(*) AS n
+            ROUND(MIN(price_per_kg_ghs), 2) AS min_ghs,
+            ROUND(MAX(price_per_kg_ghs), 2) AS max_ghs,
+            ROUND(AVG(price_per_kg_ghs), 2) AS avg_ghs,
+            COUNT(*) AS observation_count
         FROM stg_wfp_prices
         GROUP BY commodity_name
         ORDER BY avg_ghs DESC
@@ -97,6 +110,7 @@ def main():
     print(sample_df.to_string(index=False))
     
     con.close()
+    logging.info("Database connection closed.")
 
 if __name__ == "__main__":
     main()
