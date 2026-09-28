@@ -1,115 +1,85 @@
-# MarketPulse Ghana
+# marketpulse-ghana
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![DuckDB](https://img.shields.io/badge/DuckDB-In--Process-yellow.svg)
 ![Evidence](https://img.shields.io/badge/Evidence.dev-BI_Dashboard-blueviolet)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-**An intelligent agricultural commodity price volatility and inflation forecasting engine.**
+**MarketPulse – Agri-Commodity Price Volatility & Inflation Forecaster**
 
-MarketPulse Ghana is an end-to-end data engineering and machine learning pipeline built to ingest, analyze, and forecast the prices of primary agricultural staples across Ghanaian markets. By leveraging open UN World Food Programme data, in-process analytical databases, and time-series forecasting, this platform provides actionable insights into regional food security and inflationary pressures.
+MarketPulse Ghana is an open-source data pipeline and business intelligence dashboard designed to track, analyze, and forecast food prices across Ghana. It ingests raw agricultural pricing data from the UN World Food Programme and transforms it into actionable insights regarding inflation, supply chain efficiency, and regional food security.
 
----
 
-## Table of Contents
-- [Core Features](#core-features)
-- [The Ghana Basket Volatility Index (GBVI)](#the-ghana-basket-volatility-index-gbvi)
-- [System Architecture](#system-architecture)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
 
 ---
 
 ## Core Features
-- **Automated Data Ingestion:** Pulls and normalizes raw agricultural pricing data from the UN Humanitarian Data Exchange (HDX).
-- **Standardized Metric Engineering:** Converts all 18 distinct local market units (tubers, bunches, diverse bag sizes from 10–250 KG) into standardized 1 KG equivalents using regex-based extraction for accurate comparative analysis.
-- **Geographic Price Spread Analysis:** Compares farm-gate prices in producing regions (Brong Ahafo, Northern, Upper East, Upper West, Volta) against urban consumer prices (Greater Accra, Ashanti) to measure supply chain markup.
-- **Advanced Time-Series Forecasting:** Uses Meta's `Prophet` library to predict 30-day future price trajectories with confidence intervals, trained on data through July 2023.
-- **SQL-First BI Dashboard:** Powered by Evidence.dev to render dynamic, code-driven analytics, interactive charts, and data tables directly from the local DuckDB warehouse.
 
----
-
-## The Ghana Basket Volatility Index (GBVI)
-A proprietary crown metric developed for this project. The GBVI is a composite score (0–100) that tracks month-over-month price stability across Ghana's five most critical staple crop groups (Maize, Rice, Cassava, Plantain, Tomatoes).
-
-**Formula (composite):**
-- 60% weight: average absolute MoM% change across the 5 staple groups (magnitude of movement)
-- 40% weight: standard deviation of MoM% across staples (how differently each crop behaved)
-- Both components scaled to [0, 100] and bounded with `LEAST(100, GREATEST(0, ...))`
-
-**Risk bands:**
-- **0–30:** Stable Price Environment
-- **31–70:** Moderate Inflationary Pressure
-- **71–100:** High Food Volatility Alert
+*   **Automated Data Standardization:** The raw UN dataset contains 18 different local market units (from 100kg bags to "bunches" of plantains). The pipeline algorithmically converts all commodities into a standardized price-per-kg metric for accurate comparative analysis.
+*   **Geographic Market Spread Analysis:** Compares farm-gate prices in major producing regions (Brong Ahafo, Northern, Upper East, Upper West, Volta) against retail prices in major urban centers (Greater Accra, Ashanti). This isolates the exact markup added by the supply chain.
+*   **The GBVI Score:** The Ghana Basket Volatility Index is a proprietary 0–100 composite metric tracking price stability for 5 core consumer staples (Maize, Rice, Cassava, Plantain, Tomatoes). It measures both the magnitude and standard deviation of month-over-month retail inflation.
+*   **Machine Learning Forecasting:** Integrates Meta's `Prophet` time-series forecasting model to project retail price trajectories for key staples up to 3 months into the future, trained on nearly 4 years of historical retail data (2019-2023).
+*   **Code-Driven BI Dashboard:** The entire visualization layer is built using Evidence.dev, generating interactive markdown-based analytics by querying the local DuckDB warehouse directly.
 
 ---
 
 ## System Architecture
-```
-WFP Ghana CSV (HDX) → DuckDB (agri_ghana.duckdb) → Prophet ML → Evidence.dev UI → Vercel
-```
 
-| Layer | Technology |
-|---|---|
-| Data Source | UN WFP HDX (CSV, 37,765 records, 2006–2023) |
-| Staging & Warehouse | DuckDB (in-process OLAP) |
-| Analytics | Python + DuckDB SQL Views |
-| ML Forecasting | Python + Meta Prophet |
-| Dashboard | Evidence.dev (SQL-to-Markdown BI) |
-| Deployment | Vercel / Netlify (free tier) |
+The project follows a unified code-driven architecture where a local database acts as the single bridge between data engineering, machine learning, and the web interface.
 
-**Database objects:**
+**Pipeline Flow:**
+`WFP Ghana CSV (HDX) → DuckDB → Python (Pandas/Prophet) → Evidence.dev`
+
+**Database Objects (DuckDB):**
 | Object | Type | Description |
 |---|---|---|
-| `raw_wfp_prices` | Table | Unmodified WFP CSV dump |
-| `stg_wfp_prices` | Table | Cleaned, unit-normalized staging table |
-| `fact_monthly_prices` | View | Monthly avg prices, MoM%, rolling 3m/6m averages |
-| `fact_market_spreads` | View | Producing vs. urban price gap per commodity/month |
-| `fact_gbvi_index` | View | GBVI composite score (0–100) per month |
-| `fact_price_forecasts` | Table | Prophet 30-day forecasts with MAPE scores |
+| `raw_wfp_prices` | Table | Unmodified raw CSV dataset |
+| `stg_wfp_prices` | Table | Cleaned dataset normalized to GHS/kg with latitude/longitude |
+| `fact_monthly_prices` | View | Monthly retail & wholesale averages, rolling trends, and MoM% |
+| `fact_market_spreads` | View | Producing vs. Urban price gaps by commodity |
+| `fact_gbvi_index` | View | The 0–100 retail volatility score |
+| `fact_price_forecasts` | Table | 3-month future retail predictions from the Prophet ML model |
 
 ---
 
-## Prerequisites
-- [Python 3.10+](https://www.python.org/downloads/)
-- [Node.js 18+](https://nodejs.org/) (Required for Evidence.dev)
-- Git
+## Local Setup & Installation
 
----
+### Prerequisites
+*   Python 3.10+
+*   Node.js 18+
 
-## Getting Started
-
-### 1. Clone the Repository
+### 1. Repository Setup
 ```bash
 git clone https://github.com/primegideon/marketpulse-ghana.git
 cd marketpulse-ghana
 ```
 
-### 2. Set Up the Python Environment
+### 2. Python Environment
 ```bash
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
 # macOS/Linux
-source venv/bin/activate
+# source venv/bin/activate
 
 pip install duckdb pandas prophet scikit-learn
 ```
 
-### 3. Run the Full Data Pipeline (in order)
+### 3. Run the Data Engine
+The pipeline is segmented into sequential steps. Run them in order to construct the database from scratch:
+
 ```bash
-# Step 1: Download and ingest raw WFP data into DuckDB
-python ingest_data.py
+# Step 1: Download raw data and load into DuckDB
+python pipeline/1_ingest_data.py
 
-# Step 2: Clean, normalize all 18 unit types, build stg_wfp_prices
-python transform_data.py
+# Step 2: Clean data and normalize units
+python pipeline/2_transform_data.py
 
-# Step 3: Build the 3 analytics views (market spreads, GBVI, monthly prices)
-python build_analytics_views.py
+# Step 3: Build analytics views (Spreads, GBVI, Monthly trends)
+python pipeline/3_build_analytics_views.py
 
-# Step 4: Run Prophet ML forecasting pipeline (may take 3-5 minutes)
-python run_forecasting.py
+# Step 4: Train Prophet ML model and generate forecasts
+python pipeline/4_run_forecasting.py
 ```
 
 ### 4. Launch the Dashboard
@@ -118,4 +88,4 @@ cd ui
 npm install
 npm run dev
 ```
-Navigate to `http://localhost:3000` to view the interactive Evidence dashboard.
+Navigate to `http://localhost:3000` to view the interactive dashboard.

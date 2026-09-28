@@ -1,13 +1,25 @@
 {
-  "name": "my-project",
-  "version": "0.0.1",
+  "name": "marketpulse-ghana-ui",
+  "version": "1.0.0",
   "scripts": {
-    "build": "echo 'npm run build' is deprecated",
-    "build:strict": "echo 'npm run build:strict' is deprecated",
-    "dev": "node -e \"console.log('\\x1b[1;31mnpm run dev\\x1b[0;31m is deprecated\\x1b[0m\\n'); console.log('Download the new CLI from \\x1b[36mhttps://docs.evidence.studio/cli\\x1b[0m'); console.log('After installing, run \\x1b[1mevidence dev\\x1b[0m instead')\"",
-    "sources": "node -e \"console.log('\\x1b[1;31mnpm run sources\\x1b[0;31m is deprecated\\x1b[0m\\n'); console.log('Download the new CLI from \\x1b[36mhttps://docs.evidence.studio/cli\\x1b[0m'); console.log('After installing, run \\x1b[1mevidence dev\\x1b[0m instead')\"",
-    "sources:strict": "echo 'npm run sources:strict' is deprecated",
-    "preview": "echo 'npm run preview' is deprecated"
+    "dev": "evidence dev",
+    "sources": "evidence sources",
+    "build": "evidence build",
+    "preview": "evidence preview"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "4.2.0",
+    "@evidence-dev/duckdb": "^2.0.0",
+    "@evidence-dev/evidence": "^35.0.0",
+    "@sveltejs/kit": "^2.5.4",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "postcss-load-config": "^6.0.1",
+    "svelte-kit": "^1.2.0"
+  },
+  "devDependencies": {
+    "svelte": "^4.2.19"
   },
   "type": "module"
 }
