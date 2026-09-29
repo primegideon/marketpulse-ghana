@@ -24,11 +24,12 @@ ORDER BY spread_margin_pct DESC
 
 ```sql spread_kpis
 SELECT
-    ROUND(AVG(spread_margin_pct), 1)        AS avg_spread_pct,
-    ROUND(MAX(spread_margin_pct), 1)        AS max_spread_pct,
+    ROUND(AVG(CASE WHEN spread_margin_pct BETWEEN -100 AND 600 THEN spread_margin_pct END), 1) AS avg_spread_pct,
+    ROUND(MAX(CASE WHEN spread_margin_pct BETWEEN -100 AND 600 THEN spread_margin_pct END), 1) AS max_spread_pct,
     COUNT(DISTINCT commodity_name)          AS commodities_monitored,
     COUNT(DISTINCT month_start)             AS months_on_record
 FROM agri_ghana.fact_market_spreads
+WHERE spread_margin_pct IS NOT NULL
 ```
 
 ```sql spread_trends

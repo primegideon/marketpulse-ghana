@@ -47,21 +47,23 @@ SELECT
     ROUND(AVG(avg_price_per_kg_ghs), 2)  AS national_avg_price,
     ROUND(MAX(avg_price_per_kg_ghs), 2)  AS all_time_high,
     ROUND(MIN(avg_price_per_kg_ghs), 2)  AS all_time_low,
-    ROUND(AVG(mom_inflation_pct), 2)     AS avg_mom_inflation
+    ROUND(AVG(CASE WHEN mom_inflation_pct BETWEEN -100 AND 500 THEN mom_inflation_pct END), 2) AS avg_mom_inflation
 FROM agri_ghana.fact_monthly_prices
 WHERE commodity_name = '${inputs.selected_commodity.value}'
+  AND avg_price_per_kg_ghs IS NOT NULL
 ```
 
 ```sql regional_summary
 SELECT
     region,
-    ROUND(AVG(avg_price_per_kg_ghs), 2)    AS historical_avg,
-    ROUND(MIN(avg_price_per_kg_ghs), 2)    AS all_time_low,
-    ROUND(MAX(avg_price_per_kg_ghs), 2)    AS all_time_high,
-    ROUND(STDDEV(avg_price_per_kg_ghs), 2) AS price_volatility,
+    ROUND(AVG(avg_price_per_kg_ghs), 2)        AS historical_avg,
+    ROUND(MIN(avg_price_per_kg_ghs), 2)        AS all_time_low,
+    ROUND(MAX(avg_price_per_kg_ghs), 2)        AS all_time_high,
+    ROUND(STDDEV_POP(avg_price_per_kg_ghs), 2) AS price_volatility,
     COUNT(*) AS months_observed
 FROM agri_ghana.fact_monthly_prices
 WHERE commodity_name = '${inputs.selected_commodity.value}'
+  AND avg_price_per_kg_ghs IS NOT NULL
 GROUP BY region
 ORDER BY historical_avg DESC
 ```
