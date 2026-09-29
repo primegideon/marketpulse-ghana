@@ -235,6 +235,8 @@ Average month-over-month retail price change for each calendar month, based on t
     subtitle="Retail prices · 2018–2023 · Positive = prices typically rise that month"
     yAxisTitle="Avg MoM Change (%)"
     colorPalette={['#2563a8']}
+    fmt="num1"
+    sort=false
     labels=false
 />
 
