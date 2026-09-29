@@ -1,0 +1,120 @@
+name: Pipeline Validation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pipeline/**'
+      - 'ui/sources/agri_ghana/agri_ghana.duckdb'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'pipeline/**'
+      - 'ui/sources/agri_ghana/agri_ghana.duckdb'
+
+jobs:
+  validate-pipeline:
+    name: Validate Data Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: pip install duckdb pandas
+
+      - name: Validate DuckDB schema and row counts
+        run: |
+          python - <<'EOF'
+          import duckdb
+          import sys
+
+          con = duckdb.connect("ui/sources/agri_ghana/agri_ghana.duckdb", read_only=True)
+
+          checks = {
+              "fact_monthly_prices":  1000,
+              "fact_gbvi_index":      10,
+              "fact_market_spreads":  100,
+              "fact_price_forecasts": 1,
+          }
+
+          failed = False
+          for table, min_rows in checks.items():
+              count = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+              status = "PASS" if count >= min_rows else "FAIL"
+              if status == "FAIL":
+                  failed = True
+              print(f"  [{status}] {table}: {count} rows (minimum expected: {min_rows})")
+
+          if failed:
+              print("\nPipeline validation failed — one or more tables are below the minimum row threshold.")
+              sys.exit(1)
+          else:
+              print("\nAll pipeline checks passed.")
+          EOF
+
+      - name: Validate forecast table has future projections
+        run: |
+          python - <<'EOF'
+          import duckdb
+          import sys
+
+          con = duckdb.connect("ui/sources/agri_ghana/agri_ghana.duckdb", read_only=True)
+
+          forecast_count = con.execute(
+              "SELECT COUNT(*) FROM fact_price_forecasts WHERE is_forecast = TRUE"
+          ).fetchone()[0]
+
+          commodity_count = con.execute(
+              "SELECT COUNT(DISTINCT commodity_name) FROM fact_price_forecasts WHERE is_forecast = TRUE"
+          ).fetchone()[0]
+
+          print(f"  Forecast rows: {forecast_count}")
+          print(f"  Commodities with forecasts: {commodity_count}")
+
+          if forecast_count == 0:
+              print("\n[FAIL] No forecast rows found in fact_price_forecasts.")
+              sys.exit(1)
+
+          if commodity_count < 3:
+              print(f"\n[FAIL] Expected forecasts for at least 3 commodities, found {commodity_count}.")
+              sys.exit(1)
+
+          print("\nForecast validation passed.")
+          EOF
+
+      - name: Validate GBVI score range
+        run: |
+          python - <<'EOF'
+          import duckdb
+          import sys
+
+          con = duckdb.connect("ui/sources/agri_ghana/agri_ghana.duckdb", read_only=True)
+
+          result = con.execute("""
+              SELECT
+                  COUNT(*) FILTER (WHERE gbvi_score < 0 OR gbvi_score > 100) AS out_of_range,
+                  MIN(gbvi_score) AS min_score,
+                  MAX(gbvi_score) AS max_score
+              FROM fact_gbvi_index
+          """).fetchone()
+
+          out_of_range, min_score, max_score = result
+          print(f"  GBVI score range: {min_score} – {max_score}")
+          print(f"  Out-of-range rows: {out_of_range}")
+
+          if out_of_range > 0:
+              print("\n[FAIL] GBVI scores found outside the valid 0–100 range.")
+              sys.exit(1)
+
+          print("\nGBVI range validation passed.")
+          EOF
