@@ -4,7 +4,7 @@ title: "Supply Chain Price Spreads"
 
 # Supply Chain Price Spreads
 
-Analysis of the price gap between producing regions (farm-gate) and urban consumer markets. A high spread margin indicates significant supply chain friction — transport costs, middlemen markups, or market access barriers that drive up the cost of food for urban households.
+Analysis of the retail price gap between agricultural producing regions and urban consumer markets. A high spread margin indicates supply chain friction — transport costs, intermediary markups, or market access barriers that raise the cost of food for urban households above farm-gate levels.
 
 **Producing regions:** Brong Ahafo, Northern, Upper East, Upper West, Volta
 
@@ -24,19 +24,20 @@ ORDER BY spread_margin_pct DESC
 
 ```sql spread_kpis
 SELECT
-    ROUND(AVG(CASE WHEN spread_margin_pct BETWEEN -100 AND 600 THEN spread_margin_pct END), 1) AS avg_spread_pct,
-    ROUND(MAX(CASE WHEN spread_margin_pct BETWEEN -100 AND 600 THEN spread_margin_pct END), 1) AS max_spread_pct,
-    COUNT(DISTINCT commodity_name)          AS commodities_monitored,
-    COUNT(DISTINCT month_start)             AS months_on_record
+    ROUND(AVG(spread_margin_pct), 1)            AS avg_spread_pct,
+    ROUND(MAX(spread_margin_pct), 1)            AS max_spread_pct,
+    COUNT(DISTINCT commodity_name)              AS commodities_monitored,
+    COUNT(DISTINCT month_start)                 AS months_on_record
 FROM agri_ghana.fact_market_spreads
 WHERE spread_margin_pct IS NOT NULL
+  AND spread_margin_pct > 0
 ```
 
 ```sql spread_trends
 SELECT
     month_start,
     commodity_name,
-    ROUND(spread_margin_pct / 100.0, 4) AS spread_margin_pct_dec
+    ROUND(spread_margin_pct, 1) AS spread_margin_pct
 FROM agri_ghana.fact_market_spreads
 WHERE month_start >= '2020-01-01'
   AND spread_margin_pct > 0
@@ -46,8 +47,9 @@ ORDER BY month_start, commodity_name
 ```sql top_spread_commodities
 SELECT
     commodity_name,
-    ROUND(AVG(spread_margin_pct), 1)    AS avg_spread_pct,
-    ROUND(MAX(spread_margin_pct), 1)    AS peak_spread_pct
+    ROUND(AVG(spread_margin_pct), 1) AS avg_spread_pct,
+    ROUND(MAX(spread_margin_pct), 1) AS peak_spread_pct,
+    COUNT(*)                         AS months_observed
 FROM agri_ghana.fact_market_spreads
 WHERE spread_margin_pct > 0
 GROUP BY commodity_name
@@ -90,58 +92,64 @@ LIMIT 10
 
 ## Urban Markup by Commodity — Latest Month
 
-How much more expensive is each commodity in urban consumer markets compared to the farm-gate price in producing regions? A 100% markup means the urban price is double the producer price.
+How much more expensive is each commodity in urban consumer markets relative to farm-gate prices in producing regions? A markup of 100% means the urban price is double the producing-region price.
 
 <BarChart
     data={latest_spread}
     x="commodity_name"
     y="spread_margin_pct_dec"
     title="Urban Price Premium over Farm-Gate — Latest Month"
+    subtitle="Positive values indicate urban prices exceed producing-region prices"
     yAxisTitle="Urban Markup (%)"
     swapXY=true
     sort="spread_margin_pct_dec"
     fmt="pct1"
-    colorPalette={['#1d4ed8']}
+    colorPalette={['#2563a8']}
 />
 
 ---
 
 ## Average Urban Markup by Commodity — Full Period
 
-Which commodities have sustained the highest urban price premiums over the full observation period?
+Which commodities have sustained the highest urban price premiums over the full observation period? High sustained markups indicate persistent supply chain inefficiencies rather than one-off events.
 
 <BarChart
     data={top_spread_commodities}
     x="commodity_name"
     y="avg_spread_pct"
     title="Top 10 Commodities by Average Urban Markup — Full Observation Period (%)"
+    subtitle="Higher values indicate greater and more persistent supply chain friction"
     yAxisTitle="Average Urban Markup (%)"
     swapXY=true
-    colorPalette={['#1d4ed8']}
+    colorPalette={['#1e3a5f']}
 />
 
 ---
 
 ## Spread Margin Trend (2020 – 2023)
 
+Monthly urban markup percentage by commodity since January 2020. Spread widening during specific periods can be traced to dry-season road deterioration, fuel price increases, or perishability-driven farm-gate price collapses.
+
 <LineChart
     data={spread_trends}
     x="month_start"
-    y="spread_margin_pct_dec"
+    y="spread_margin_pct"
     series="commodity_name"
-    title="Urban vs Farm-Gate Price Spread by Commodity (% Margin)"
+    title="Urban vs Farm-Gate Price Spread by Commodity — Monthly Markup (%)"
+    subtitle="Positive values only · 2020–2023"
     yAxisTitle="Urban Markup (%)"
-    fmt="pct1"
     legend=true
 />
 
-> **What drives spread widening?** Spreads typically widen during the dry season (November – March) when poor road conditions in the Northern and Upper regions raise transport costs. Tomatoes and plantains show the most volatile spreads due to their perishability — any supply disruption rapidly inflates urban prices while farm-gate prices collapse.
+<Alert status="info">
+    <b>Spread drivers:</b> Spreads typically widen during the dry season (November–March) when road conditions in the Northern and Upper regions raise transport costs. Tomatoes and plantains show the most volatile spreads because any supply disruption rapidly inflates urban prices while farm-gate prices simultaneously collapse, amplifying the margin.
+</Alert>
 
 ---
 
-## Price Gap — Latest Month
+## Price Gap Detail — Latest Month
 
-<DataTable data={latest_spread} search=true>
+<DataTable data={latest_spread} search=true rowNumbers=false>
     <Column id="commodity_name" title="Commodity" />
     <Column id="producing_avg_price" title="Farm-Gate Avg (GHS/KG)" fmt="num2" />
     <Column id="urban_avg_price" title="Urban Avg (GHS/KG)" fmt="num2" />

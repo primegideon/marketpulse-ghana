@@ -42,10 +42,10 @@ jobs:
           con = duckdb.connect("ui/sources/agri_ghana/agri_ghana.duckdb", read_only=True)
 
           checks = {
-              "fact_monthly_prices":  1000,
-              "fact_gbvi_index":      10,
-              "fact_market_spreads":  100,
-              "fact_price_forecasts": 1,
+              "fact_monthly_prices":   1000,
+              "fact_gbvi_index":       10,
+              "fact_market_spreads":   100,
+              "fact_seasonal_outlook": 60,
           }
 
           failed = False
@@ -63,7 +63,7 @@ jobs:
               print("\nAll pipeline checks passed.")
           EOF
 
-      - name: Validate forecast table has future projections
+      - name: Validate seasonal outlook coverage
         run: |
           python - <<'EOF'
           import duckdb
@@ -71,26 +71,27 @@ jobs:
 
           con = duckdb.connect("ui/sources/agri_ghana/agri_ghana.duckdb", read_only=True)
 
-          forecast_count = con.execute(
-              "SELECT COUNT(*) FROM fact_price_forecasts WHERE is_forecast = TRUE"
-          ).fetchone()[0]
+          staples = [
+              "maize", "cassava", "rice (local)", "rice (imported)",
+              "plantains (apentu)", "tomatoes (local)",
+          ]
 
-          commodity_count = con.execute(
-              "SELECT COUNT(DISTINCT commodity_name) FROM fact_price_forecasts WHERE is_forecast = TRUE"
-          ).fetchone()[0]
+          failed = False
+          for commodity in staples:
+              count = con.execute(
+                  "SELECT COUNT(*) FROM fact_seasonal_outlook WHERE commodity_name = ?",
+                  [commodity]
+              ).fetchone()[0]
+              status = "PASS" if count == 12 else "FAIL"
+              if status == "FAIL":
+                  failed = True
+              print(f"  [{status}] {commodity}: {count}/12 months")
 
-          print(f"  Forecast rows: {forecast_count}")
-          print(f"  Commodities with forecasts: {commodity_count}")
-
-          if forecast_count == 0:
-              print("\n[FAIL] No forecast rows found in fact_price_forecasts.")
+          if failed:
+              print("\nSeasonal outlook validation failed.")
               sys.exit(1)
 
-          if commodity_count < 3:
-              print(f"\n[FAIL] Expected forecasts for at least 3 commodities, found {commodity_count}.")
-              sys.exit(1)
-
-          print("\nForecast validation passed.")
+          print("\nSeasonal outlook validation passed.")
           EOF
 
       - name: Validate GBVI score range
