@@ -100,7 +100,7 @@ How much more expensive is each commodity in urban consumer markets compared to 
     swapXY=true
     sort="spread_margin_pct_dec"
     fmt="pct1"
-    colorPalette={['#1E3A8A']}
+    colorPalette={['#1d4ed8']}
 />
 
 ---
@@ -116,7 +116,7 @@ Which commodities have sustained the highest urban price premiums over the full 
     title="Top 10 Commodities by Average Urban Markup — Full Observation Period (%)"
     yAxisTitle="Average Urban Markup (%)"
     swapXY=true
-    colorPalette={['#1E3A8A']}
+    colorPalette={['#1d4ed8']}
 />
 
 ---
