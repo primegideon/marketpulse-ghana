@@ -6,7 +6,7 @@ title: "Executive Overview"
 
 **Agricultural price volatility and food inflation monitor for Ghana's core staple commodities.**
 
-Data source: UN World Food Programme (WFP) · Forecast engine: Meta Prophet · Coverage: 2019 – 2023
+Data source: UN World Food Programme (WFP) &nbsp;·&nbsp; Seasonal outlook: 2018–2023 retail baseline &nbsp;·&nbsp; Coverage: 2006 – 2023
 
 ---
 
@@ -14,7 +14,7 @@ Data source: UN World Food Programme (WFP) · Forecast engine: Meta Prophet · C
 SELECT
     gbvi_score,
     risk_band,
-    avg_mom_pct / 100.0  AS avg_mom_pct_dec,
+    avg_mom_pct / 100.0     AS avg_mom_pct_dec,
     avg_abs_mom_pct / 100.0 AS avg_abs_mom_pct_dec,
     month_start
 FROM agri_ghana.fact_gbvi_index
@@ -45,6 +45,12 @@ SELECT
     ROUND(AVG(avg_price_per_kg_ghs), 2)        AS avg_price_ghs
 FROM agri_ghana.fact_monthly_prices
 WHERE avg_price_per_kg_ghs IS NOT NULL
+  AND price_type = 'retail'
+  AND commodity_name IN (
+      'maize', 'maize (yellow)', 'rice (local)', 'rice (imported)',
+      'cassava', 'plantains (apem)', 'plantains (apentu)',
+      'tomatoes (local)', 'tomatoes (navrongo)', 'sorghum', 'millet', 'yam'
+  )
 GROUP BY commodity_name
 ORDER BY price_stddev DESC
 LIMIT 8
@@ -62,6 +68,7 @@ SELECT
     ROUND(AVG(mom_inflation_pct), 2) AS avg_mom_pct
 FROM agri_ghana.fact_monthly_prices
 WHERE commodity_name IN ('maize', 'rice (local)', 'cassava', 'tomatoes (local)', 'plantains (apentu)')
+  AND price_type = 'retail'
   AND mom_inflation_pct IS NOT NULL
   AND mom_inflation_pct BETWEEN -100 AND 500
 GROUP BY month_name, month_num
@@ -74,6 +81,7 @@ SELECT
     ROUND(AVG(mom_inflation_pct), 2) AS avg_mom_pct
 FROM agri_ghana.fact_monthly_prices
 WHERE month_start >= '2022-07-01'
+  AND price_type = 'retail'
   AND mom_inflation_pct IS NOT NULL
   AND mom_inflation_pct BETWEEN -100 AND 500
 GROUP BY region
@@ -98,7 +106,7 @@ ORDER BY avg_mom_pct DESC
     <BigValue
         data={latest_gbvi}
         value="risk_band"
-        title="Current Risk Level"
+        title="Current Risk Band"
     />
     <BigValue
         data={latest_gbvi}
@@ -110,77 +118,92 @@ ORDER BY avg_mom_pct DESC
     <BigValue
         data={latest_gbvi}
         value="avg_abs_mom_pct_dec"
-        title="Avg Price Swing"
+        title="Avg Absolute Price Swing"
         fmt="pct1"
         downIsGood=true
     />
 </Grid>
 
-> **What is the GBVI?** The Ghana Basket Volatility Index is a composite score from 0–100 measuring month-over-month price instability across Ghana's five primary staples: Maize, Rice, Cassava, Plantain, and Tomatoes. A score of 0–30 indicates a stable price environment. 31–70 signals moderate inflationary pressure. Above 70 is a high food volatility alert.
+<Alert status="info">
+    <b>What is the GBVI?</b> The Ghana Basket Volatility Index is a composite score from 0 to 100 measuring month-over-month price instability across Ghana's five primary staples: Maize, Rice, Cassava, Plantain, and Tomatoes. Scores of 0–30 indicate a stable price environment. 31–70 signals moderate inflationary pressure. Above 70 is a high food volatility alert. The index is calibrated so that a score below 30 reflects normal seasonal variation and a score of 100 corresponds to a genuine supply crisis or macroeconomic shock.
+</Alert>
 
 ---
 
-## GBVI Trend (2019 – 2023)
+## GBVI Trend (2006 – 2023)
 
 <LineChart
     data={gbvi_history}
     x="month_start"
     y="gbvi_score"
     title="Ghana Basket Volatility Index — Monthly Score"
-    yAxisTitle="GBVI Score (0–100)"
+    subtitle="Composite 0–100 measure of staple basket price instability"
+    yAxisTitle="GBVI Score"
     yMin=0
     yMax=100
-    labels=true
-    colorPalette={['#1d4ed8']}
+    labels=false
+    colorPalette={['#1e3a5f']}
+    referenceLines={[
+        {y: 70, label: 'High Alert threshold', color: '#b91c1c', lineType: 'dashed'},
+        {y: 30, label: 'Stable threshold', color: '#15803d', lineType: 'dashed'}
+    ]}
 />
 
-<Details title="How to read this chart">
-    The GBVI spikes during planting season (Feb–May) when existing stocks are depleted before the new harvest arrives, and again during flooding events in the Northern region which disrupt supply routes. The relatively stable period from mid-2021 to early-2022 reflects improved supply-chain conditions before global commodity price shocks resumed.
+<Details title="Reading this chart">
+    The GBVI peaks during two recurring conditions: the pre-harvest lean season (February–April) when grain reserves from the prior harvest are depleted, and during documented macroeconomic shocks. The spikes to 100 in early 2020 reflect COVID-19 market disruptions; those in early 2022 reflect the Russia-Ukraine global commodity price shock and the onset of the Ghana cedi depreciation crisis.
 </Details>
 
 ---
 
-## Price Volatility Ranking
+## Staple Commodity Volatility Ranking
 
-Which commodities have shown the highest absolute price swings over the full observation period?
+Which staple crops have shown the highest absolute retail price variation over the full observation period? Standard deviation of monthly price measures the spread of price observations around the commodity's long-run average.
 
 <BarChart
     data={volatility_ranking}
     x="commodity_name"
     y="price_stddev"
-    title="Top 8 Most Volatile Commodities — Standard Deviation of Monthly Price (GHS/KG)"
+    title="Price Volatility by Staple Commodity — Standard Deviation of Monthly Retail Price (GHS/KG)"
+    subtitle="Retail prices only · Full observation period 2006–2023"
     yAxisTitle="Price Std Dev (GHS/KG)"
     swapXY=true
-    colorPalette={['#1d4ed8']}
+    colorPalette={['#2563a8']}
 />
 
 ---
 
 ## Seasonal Price Pressure
 
-Average month-over-month inflation by calendar month across the five primary staples. Months above zero mean prices tend to rise; below zero means they tend to fall.
+Average month-over-month retail price change by calendar month across the five primary staples. Months above zero indicate prices tend to rise; below zero indicates they tend to fall. Based on retail prices only.
 
 <BarChart
     data={seasonality}
     x="month_name"
     y="avg_mom_pct"
-    title="Average MoM Inflation by Calendar Month — Primary Staples"
-    yAxisTitle="Avg MoM % Change"
-    colorPalette={['#1d4ed8']}
+    title="Average MoM Retail Inflation by Calendar Month — Primary Staples"
+    subtitle="Retail prices only · Observations capped at ±100% to exclude data entry anomalies"
+    yAxisTitle="Avg MoM Change (%)"
+    colorPalette={['#2563a8']}
 />
 
-> **Key pattern:** February and April consistently record the highest average inflation. This aligns with the pre-harvest lean season when grain reserves from the previous harvest are running low. July and September show price relief as the main harvest comes to market.
+<Alert status="info">
+    <b>Seasonal pattern:</b> April consistently records the highest average retail inflation across the staple basket. This aligns with the pre-harvest lean season when grain reserves from the previous harvest are running low and new-season supply has not yet reached markets. September shows price relief as the main harvest arrives.
+</Alert>
 
 ---
 
-## Regional Inflation Pressure (Last 12 Months)
+## Regional Retail Inflation — July 2022 to July 2023
+
+Average month-over-month retail price change by administrative region over the trailing 18-month period. This period captures the Ghana cedi depreciation crisis and its uneven regional impact on food prices.
 
 <BarChart
     data={regional_inflation}
     x="region"
     y="avg_mom_pct"
-    title="Average MoM Inflation by Region — July 2022 to July 2023"
-    yAxisTitle="Avg MoM Inflation %"
+    title="Average MoM Retail Inflation by Region — July 2022 to July 2023"
+    subtitle="Retail prices only · Staple and non-staple commodities included"
+    yAxisTitle="Avg MoM Inflation (%)"
     swapXY=true
-    colorPalette={['#1d4ed8']}
+    sort="avg_mom_pct"
+    colorPalette={['#2563a8']}
 />

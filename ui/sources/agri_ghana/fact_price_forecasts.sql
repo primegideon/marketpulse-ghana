@@ -7,6 +7,7 @@ select
     upper_bound_ghs,
     mape_score,
     baseline_mape_score,
+    directional_accuracy,
     is_forecast
 from fact_price_forecasts
 order by commodity_name, record_date
