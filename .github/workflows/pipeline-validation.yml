@@ -28,9 +28,10 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: 'pipeline/requirements.txt'
 
       - name: Install Python dependencies
-        run: pip install duckdb pandas
+        run: pip install -r pipeline/requirements.txt
 
       - name: Validate DuckDB schema and row counts
         run: |
