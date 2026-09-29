@@ -16,9 +16,7 @@
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
     "postcss-load-config": "^6.0.1",
-    "svelte-kit": "^1.2.0"
-  },
-  "devDependencies": {
+    "svelte-kit": "^1.2.0",
     "svelte": "^4.2.19"
   },
   "type": "module"
