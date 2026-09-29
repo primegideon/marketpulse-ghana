@@ -57,6 +57,13 @@ ORDER BY avg_spread_pct DESC
 LIMIT 10
 ```
 
+```sql spread_commodities_list
+SELECT DISTINCT commodity_name
+FROM agri_ghana.fact_market_spreads
+WHERE spread_margin_pct > 0
+ORDER BY commodity_name
+```
+
 ---
 
 ## Overview
@@ -90,6 +97,9 @@ LIMIT 10
 
 ---
 
+<Tabs>
+    <Tab label="Latest Month">
+
 ## Urban Markup by Commodity — Latest Month
 
 How much more expensive is each commodity in urban consumer markets relative to farm-gate prices in producing regions? A markup of 100% means the urban price is double the producing-region price.
@@ -109,6 +119,59 @@ How much more expensive is each commodity in urban consumer markets relative to 
 
 ---
 
+## Price Gap Detail — Latest Month
+
+<DataTable data={latest_spread} search=true rowNumbers=false>
+    <Column id="commodity_name" title="Commodity" />
+    <Column id="producing_avg_price" title="Farm-Gate Avg (GHS/KG)" fmt="num2" />
+    <Column id="urban_avg_price" title="Urban Avg (GHS/KG)" fmt="num2" />
+    <Column id="absolute_spread_ghs" title="Absolute Gap (GHS/KG)" fmt="num2" />
+    <Column id="spread_margin_pct_dec" title="Urban Markup" fmt="pct1" contentType="colorscale" scaleColor="blue" />
+</DataTable>
+
+    </Tab>
+    <Tab label="Trend">
+
+## Spread Margin Trend (2020 – 2023)
+
+Monthly urban markup percentage by commodity since January 2020. Spread widening during specific periods can be traced to dry-season road deterioration, fuel price increases, or perishability-driven farm-gate price collapses. Use the filter to focus on one commodity at a time.
+
+<Dropdown
+    name="trend_commodity"
+    data={spread_commodities_list}
+    value="commodity_name"
+    title="Commodity"
+    defaultValue="maize"
+/>
+
+```sql spread_trend_filtered
+SELECT
+    month_start,
+    ROUND(spread_margin_pct, 1) AS spread_margin_pct
+FROM agri_ghana.fact_market_spreads
+WHERE month_start >= '2020-01-01'
+  AND spread_margin_pct > 0
+  AND commodity_name = '${inputs.trend_commodity.value}'
+ORDER BY month_start
+```
+
+<AreaChart
+    data={spread_trend_filtered}
+    x="month_start"
+    y="spread_margin_pct"
+    title="Urban vs Farm-Gate Price Spread — Monthly Markup (%)"
+    subtitle="Positive values only · 2020–2023"
+    yAxisTitle="Urban Markup (%)"
+    colorPalette={['#1e3a5f']}
+/>
+
+<Alert status="info">
+    <b>Spread drivers:</b> Spreads typically widen during the dry season (November–March) when road conditions in the Northern and Upper regions raise transport costs. Tomatoes and plantains show the most volatile spreads because any supply disruption rapidly inflates urban prices while farm-gate prices simultaneously collapse, amplifying the margin.
+</Alert>
+
+    </Tab>
+    <Tab label="All Commodities">
+
 ## Average Urban Markup by Commodity — Full Period
 
 Which commodities have sustained the highest urban price premiums over the full observation period? High sustained markups indicate persistent supply chain inefficiencies rather than one-off events.
@@ -124,35 +187,5 @@ Which commodities have sustained the highest urban price premiums over the full 
     colorPalette={['#1e3a5f']}
 />
 
----
-
-## Spread Margin Trend (2020 – 2023)
-
-Monthly urban markup percentage by commodity since January 2020. Spread widening during specific periods can be traced to dry-season road deterioration, fuel price increases, or perishability-driven farm-gate price collapses.
-
-<LineChart
-    data={spread_trends}
-    x="month_start"
-    y="spread_margin_pct"
-    series="commodity_name"
-    title="Urban vs Farm-Gate Price Spread by Commodity — Monthly Markup (%)"
-    subtitle="Positive values only · 2020–2023"
-    yAxisTitle="Urban Markup (%)"
-    legend=true
-/>
-
-<Alert status="info">
-    <b>Spread drivers:</b> Spreads typically widen during the dry season (November–March) when road conditions in the Northern and Upper regions raise transport costs. Tomatoes and plantains show the most volatile spreads because any supply disruption rapidly inflates urban prices while farm-gate prices simultaneously collapse, amplifying the margin.
-</Alert>
-
----
-
-## Price Gap Detail — Latest Month
-
-<DataTable data={latest_spread} search=true rowNumbers=false>
-    <Column id="commodity_name" title="Commodity" />
-    <Column id="producing_avg_price" title="Farm-Gate Avg (GHS/KG)" fmt="num2" />
-    <Column id="urban_avg_price" title="Urban Avg (GHS/KG)" fmt="num2" />
-    <Column id="absolute_spread_ghs" title="Absolute Gap (GHS/KG)" fmt="num2" />
-    <Column id="spread_margin_pct_dec" title="Urban Markup" fmt="pct1" />
-</DataTable>
+    </Tab>
+</Tabs>

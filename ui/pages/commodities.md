@@ -108,22 +108,36 @@ ORDER BY historical_avg DESC
 
 ---
 
+<Tabs>
+    <Tab label="Price Trend">
+
 ## National Retail Price Series with Rolling Averages
 
 The raw monthly national average is plotted alongside a 3-month and 6-month rolling average. The rolling averages smooth short-term supply shocks and reveal the underlying price trend direction.
 
+<AreaChart
+    data={commodity_national}
+    x="month_start"
+    y="national_avg"
+    title="National Average Retail Price — Monthly (GHS/KG)"
+    subtitle="Retail prices only"
+    yAxisTitle="Price (GHS/KG)"
+    colorPalette={['#1e3a5f']}
+/>
+
 <LineChart
     data={commodity_national}
     x="month_start"
-    y={['national_avg', 'rolling_3m', 'rolling_6m']}
-    title="National Average Retail Price — Monthly vs 3-Month and 6-Month Rolling Average (GHS/KG)"
-    subtitle="Retail prices only"
+    y={['rolling_3m', 'rolling_6m']}
+    title="3-Month and 6-Month Rolling Average (GHS/KG)"
+    subtitle="Smoothed trend lines — useful for identifying sustained price direction"
     yAxisTitle="Price (GHS/KG)"
     legend=true
-    colorPalette={['#1e3a5f', '#4a90c4', '#7fb3d3']}
+    colorPalette={['#4a90c4', '#7fb3d3']}
 />
 
----
+    </Tab>
+    <Tab label="Regional Breakdown">
 
 ## Regional Retail Price Dispersion
 
@@ -140,15 +154,19 @@ Price variation across regions reflects transport costs, market access constrain
     legend=true
 />
 
----
+    </Tab>
+    <Tab label="Statistics">
 
 ## Regional Statistics — Full Observation Period
 
 <DataTable data={regional_summary} search=true rowNumbers=false>
     <Column id="region" title="Region" />
-    <Column id="historical_avg" title="Historical Avg (GHS/KG)" fmt="num2" />
+    <Column id="historical_avg" title="Historical Avg (GHS/KG)" fmt="num2" contentType="colorscale" scaleColor="blue" />
     <Column id="all_time_low" title="Floor Price (GHS/KG)" fmt="num2" />
     <Column id="all_time_high" title="Peak Price (GHS/KG)" fmt="num2" />
     <Column id="price_volatility" title="Std Dev (GHS/KG)" fmt="num2" />
     <Column id="months_observed" title="Months on Record" />
 </DataTable>
+
+    </Tab>
+</Tabs>

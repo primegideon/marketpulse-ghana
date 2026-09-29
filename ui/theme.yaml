@@ -46,9 +46,9 @@ density: default
 chart:
   gridlines: true
   baselines: true
-  smooth: false
+  smooth: true
   barRadius: 3
-  areaGradient: false
+  areaGradient: true
   animateIntro: true
   animateUpdates: true
 

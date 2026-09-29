@@ -20,6 +20,9 @@ TEMPLATE_SUBS = {
     r"'\$\{inputs\.[a-zA-Z_.]+\}'": "'maize'",
     r"\$\{inputs\.selected_commodity\.value\}": "maize",
     r"\$\{inputs\.[a-zA-Z_.]+\}": "maize",
+    # Cross-query result interpolation: ${query_name[0].field_name}
+    # Substitute with type-appropriate literals for validation purposes
+    r"\$\{[a-zA-Z0-9_]+\[0\]\.[a-zA-Z0-9_]+\}": "1",
 }
 
 SQL_BLOCK_RE = re.compile(r"```sql\s+(\w+)\s*\n(.*?)```", re.DOTALL)

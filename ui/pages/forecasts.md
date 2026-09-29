@@ -43,34 +43,54 @@ ORDER BY month_num
 SELECT
     month_start,
     ROUND(AVG(avg_price_per_kg_ghs), 2) AS national_avg
-FROM agri_ghana.fact_monthly_prices
-WHERE commodity_name = '${inputs.selected_commodity.value}'
-  AND price_type = 'retail'
-GROUP BY month_start
-ORDER BY month_start DESC
-LIMIT 6
-```
-
-```sql trailing_kpis
-SELECT
-    ROUND(AVG(avg_price_per_kg_ghs), 2)  AS current_price,
-    ROUND(
-        (MAX(CASE WHEN rn = 1 THEN avg_price_per_kg_ghs END)
-         - MAX(CASE WHEN rn = 4 THEN avg_price_per_kg_ghs END))
-        / NULLIF(MAX(CASE WHEN rn = 4 THEN avg_price_per_kg_ghs END), 0) * 100
-    , 1) AS trailing_3m_pct
 FROM (
-    SELECT
-        month_start,
-        ROUND(AVG(avg_price_per_kg_ghs), 2) AS avg_price_per_kg_ghs,
-        ROW_NUMBER() OVER (ORDER BY month_start DESC) AS rn
+    SELECT month_start, avg_price_per_kg_ghs
     FROM agri_ghana.fact_monthly_prices
     WHERE commodity_name = '${inputs.selected_commodity.value}'
       AND price_type = 'retail'
-    GROUP BY month_start
     ORDER BY month_start DESC
-    LIMIT 4
+    LIMIT 6
 ) t
+GROUP BY month_start
+ORDER BY month_start ASC
+```
+
+```sql latest_price
+SELECT
+    ROUND(AVG(avg_price_per_kg_ghs), 2) AS current_price
+FROM agri_ghana.fact_monthly_prices
+WHERE commodity_name = '${inputs.selected_commodity.value}'
+  AND price_type = 'retail'
+  AND month_start = (
+      SELECT MAX(month_start)
+      FROM agri_ghana.fact_monthly_prices
+      WHERE commodity_name = '${inputs.selected_commodity.value}'
+        AND price_type = 'retail'
+  )
+```
+
+```sql price_3m_ago
+SELECT
+    ROUND(AVG(avg_price_per_kg_ghs), 2) AS price_3m_ago
+FROM agri_ghana.fact_monthly_prices
+WHERE commodity_name = '${inputs.selected_commodity.value}'
+  AND price_type = 'retail'
+  AND month_start = (
+      SELECT DISTINCT month_start
+      FROM agri_ghana.fact_monthly_prices
+      WHERE commodity_name = '${inputs.selected_commodity.value}'
+        AND price_type = 'retail'
+      ORDER BY month_start DESC
+      LIMIT 1 OFFSET 3
+  )
+```
+
+```sql trailing_3m_change
+SELECT
+    ROUND(
+        (${latest_price[0].current_price} - ${price_3m_ago[0].price_3m_ago})
+        / NULLIF(${price_3m_ago[0].price_3m_ago}, 0) * 100
+    , 1) AS trailing_3m_pct
 ```
 
 ```sql gbvi_latest
@@ -81,6 +101,14 @@ SELECT
 FROM agri_ghana.fact_gbvi_index
 ORDER BY month_start DESC
 LIMIT 1
+```
+
+```sql next_month_num
+SELECT
+    ((EXTRACT(month FROM MAX(month_start))::INTEGER % 12) + 1) AS next_month
+FROM agri_ghana.fact_monthly_prices
+WHERE commodity_name = '${inputs.selected_commodity.value}'
+  AND price_type = 'retail'
 ```
 
 ```sql next_month_outlook
@@ -95,12 +123,7 @@ SELECT
     years_observed
 FROM agri_ghana.fact_seasonal_outlook
 WHERE commodity_name = '${inputs.selected_commodity.value}'
-  AND month_num = (
-      SELECT (EXTRACT(month FROM MAX(month_start))::INTEGER % 12) + 1
-      FROM agri_ghana.fact_monthly_prices
-      WHERE commodity_name = '${inputs.selected_commodity.value}'
-        AND price_type = 'retail'
-  )
+  AND month_num = ${next_month_num[0].next_month}
 ```
 
 ---
@@ -109,13 +132,13 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 
 <Grid cols=3>
     <BigValue
-        data={trailing_kpis}
+        data={latest_price}
         value="current_price"
         title="Latest Observed Retail Price (GHS/KG)"
         fmt="num2"
     />
     <BigValue
-        data={trailing_kpis}
+        data={trailing_3m_change}
         value="trailing_3m_pct"
         title="Trailing 3-Month Price Change (%)"
         fmt="num1"
@@ -149,6 +172,9 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 
 ---
 
+<Tabs>
+    <Tab label="Next Month">
+
 ## Next Month Seasonal Signal
 
 <Grid cols=4>
@@ -180,6 +206,22 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 </Grid>
 
 ---
+
+## Trailing 6-Month Price History
+
+<AreaChart
+    data={trailing_trend}
+    x="month_start"
+    y="national_avg"
+    title="National Average Retail Price — Last 6 Months (GHS/KG)"
+    subtitle="Retail prices only · Most recent observed data"
+    yAxisTitle="Price (GHS/KG)"
+    yMin=0
+    colorPalette={['#1e3a5f']}
+/>
+
+    </Tab>
+    <Tab label="Full Year Profile">
 
 ## Full Seasonal Profile — All 12 Months
 
@@ -215,17 +257,5 @@ Average month-over-month retail price change for each calendar month, based on t
     <Column id="years_observed" title="Years on Record" />
 </DataTable>
 
----
-
-## Trailing 6-Month Price History
-
-<LineChart
-    data={trailing_trend}
-    x="month_start"
-    y="national_avg"
-    title="National Average Retail Price — Last 6 Months (GHS/KG)"
-    subtitle="Retail prices only · Most recent observed data"
-    yAxisTitle="Price (GHS/KG)"
-    yMin=0
-    colorPalette={['#1e3a5f']}
-/>
+    </Tab>
+</Tabs>

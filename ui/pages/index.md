@@ -132,7 +132,7 @@ ORDER BY avg_mom_pct DESC
 
 ## GBVI Trend (2006 – 2023)
 
-<LineChart
+<AreaChart
     data={gbvi_history}
     x="month_start"
     y="gbvi_score"
@@ -155,22 +155,8 @@ ORDER BY avg_mom_pct DESC
 
 ---
 
-## Staple Commodity Volatility Ranking
-
-Which staple crops have shown the highest absolute retail price variation over the full observation period? Standard deviation of monthly price measures the spread of price observations around the commodity's long-run average.
-
-<BarChart
-    data={volatility_ranking}
-    x="commodity_name"
-    y="price_stddev"
-    title="Price Volatility by Staple Commodity — Standard Deviation of Monthly Retail Price (GHS/KG)"
-    subtitle="Retail prices only · Full observation period 2006–2023"
-    yAxisTitle="Price Std Dev (GHS/KG)"
-    swapXY=true
-    colorPalette={['#2563a8']}
-/>
-
----
+<Tabs>
+    <Tab label="Overview">
 
 ## Seasonal Price Pressure
 
@@ -183,12 +169,28 @@ Average month-over-month retail price change by calendar month across the five p
     title="Average MoM Retail Inflation by Calendar Month — Primary Staples"
     subtitle="Retail prices only · Observations capped at ±100% to exclude data entry anomalies"
     yAxisTitle="Avg MoM Change (%)"
-    colorPalette={['#2563a8']}
 />
 
 <Alert status="info">
     <b>Seasonal pattern:</b> April consistently records the highest average retail inflation across the staple basket. This aligns with the pre-harvest lean season when grain reserves from the previous harvest are running low and new-season supply has not yet reached markets. September shows price relief as the main harvest arrives.
 </Alert>
+
+    </Tab>
+    <Tab label="Deep Dive">
+
+## Staple Commodity Volatility Ranking
+
+Which staple crops have shown the highest absolute retail price variation over the full observation period? Standard deviation of monthly price measures the spread of price observations around the commodity's long-run average.
+
+<BarChart
+    data={volatility_ranking}
+    x="commodity_name"
+    y="price_stddev"
+    title="Price Volatility by Staple Commodity — Standard Deviation of Monthly Retail Price (GHS/KG)"
+    subtitle="Retail prices only · Full observation period 2006–2023"
+    yAxisTitle="Price Std Dev (GHS/KG)"
+    swapXY=true
+/>
 
 ---
 
@@ -204,6 +206,7 @@ Average month-over-month retail price change by administrative region over the t
     subtitle="Retail prices only · Staple and non-staple commodities included"
     yAxisTitle="Avg MoM Inflation (%)"
     swapXY=true
-    sort="avg_mom_pct"
-    colorPalette={['#2563a8']}
 />
+
+    </Tab>
+</Tabs>
