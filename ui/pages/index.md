@@ -6,7 +6,7 @@ title: "Executive Overview"
 
 **Agricultural price volatility and food inflation monitor for Ghana's core staple commodities.**
 
-Data source: UN World Food Programme (WFP) &nbsp;·&nbsp; Seasonal outlook: 2018–2023 retail baseline &nbsp;·&nbsp; Coverage: 2006 – 2023
+Data source: UN World Food Programme (WFP) &nbsp;·&nbsp; Retail price coverage: Aug 2019 – Jul 2023 &nbsp;·&nbsp; Wholesale records from 2006 (not shown — retail only dashboard)
 
 ---
 
@@ -179,7 +179,7 @@ ORDER BY avg_mom_pct DESC
 
 ---
 
-## GBVI Trend (2006 – 2023)
+## GBVI Trend (Aug 2019 – Jul 2023)
 
 <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;align-items:center">
 <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#57606a;margin-right:4px">9-commodity basket:</span>
@@ -199,7 +199,7 @@ ORDER BY avg_mom_pct DESC
     x="month_start"
     y="gbvi_score"
     title="Ghana Basket Volatility Index — Monthly Score"
-    subtitle="Composite 0–100 measure of staple basket price instability"
+    subtitle="Composite 0–100 measure of staple basket price instability · Retail prices only · Aug 2019 – Jul 2023"
     yAxisTitle="GBVI Score"
     yMin=0
     yMax=100

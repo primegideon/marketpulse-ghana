@@ -2,8 +2,6 @@
 title: "Seasonal Price Outlook"
 ---
 
-# Seasonal Price Outlook
-
 Historical price behaviour for Ghana's core staple commodities, by calendar month. Based on retail price data from 2018–2023 — the five most recent years of consistent WFP retail coverage.
 
 Use this to answer: **given the current month, what has this commodity's price typically done?**
@@ -40,18 +38,34 @@ ORDER BY month_num
 ```
 
 ```sql trailing_trend
-SELECT
-    month_start,
-    ROUND(AVG(avg_price_per_kg_ghs), 2) AS national_avg
+SELECT month_start, national_avg
 FROM (
-    SELECT month_start, avg_price_per_kg_ghs
+    SELECT
+        month_start,
+        ROUND(AVG(avg_price_per_kg_ghs), 2) AS national_avg
     FROM agri_ghana.fact_monthly_prices
     WHERE commodity_name = '${inputs.selected_commodity.value}'
       AND price_type = 'retail'
+    GROUP BY month_start
     ORDER BY month_start DESC
     LIMIT 6
 ) t
-GROUP BY month_start
+ORDER BY month_start ASC
+```
+
+```sql price_sparkline
+SELECT month_start, national_avg
+FROM (
+    SELECT
+        month_start,
+        ROUND(AVG(avg_price_per_kg_ghs), 2) AS national_avg
+    FROM agri_ghana.fact_monthly_prices
+    WHERE commodity_name = '${inputs.selected_commodity.value}'
+      AND price_type = 'retail'
+    GROUP BY month_start
+    ORDER BY month_start DESC
+    LIMIT 24
+) t
 ORDER BY month_start ASC
 ```
 
@@ -130,41 +144,67 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 
 ## Market Context
 
-<Grid cols=3>
-    <BigValue
-        data={latest_price}
-        value="current_price"
-        title="Latest Observed Retail Price (GHS/KG)"
-        fmt="num2"
-    />
-    <BigValue
-        data={trailing_3m_change}
-        value="trailing_3m_pct"
-        title="Trailing 3-Month Price Change (%)"
-        fmt="num1"
-        downIsGood=true
-    />
-    <BigValue
-        data={gbvi_latest}
-        value="gbvi_score"
-        title="Current GBVI Score"
-        fmt="num1"
-        downIsGood=true
-    />
-</Grid>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
 
-<Grid cols=2>
-    <BigValue
-        data={gbvi_latest}
-        value="risk_band"
-        title="Market Risk Band"
-    />
-    <BigValue
-        data={next_month_outlook}
-        value="direction_signal"
-        title="Next Month Seasonal Signal"
-    />
-</Grid>
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #1e3a5f">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#e8f0fa;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#1e3a5f" stroke-width="1.3"/><line x1="7" y1="4" x2="7" y2="7.5" stroke="#1e3a5f" stroke-width="1.4" stroke-linecap="round"/><circle cx="7" cy="9.5" r="0.7" fill="#1e3a5f"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Latest Retail Price</span>
+</div>
+<BigValue data={latest_price} value="current_price" fmt="num2"/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">GHS per KG · Most recent month</div>
+<Sparkline data={price_sparkline} dateCol="month_start" valueCol="national_avg" type="area" color="#1e3a5f" height=28 width=160/>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #d97706">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#fef3c7;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="1,11 4.5,6.5 8,8.5 13,2.5" stroke="#d97706" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9.5,2.5 13,2.5 13,6" stroke="#d97706" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">3-Month Price Change</span>
+</div>
+<BigValue data={trailing_3m_change} value="trailing_3m_pct" fmt="num1" downIsGood=true/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">% change · Latest vs 3 months prior</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #b91c1c">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#fee2e2;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="7" width="2.5" height="6" rx="1" fill="#b91c1c"/><rect x="5.5" y="4" width="2.5" height="9" rx="1" fill="#b91c1c"/><rect x="10" y="1" width="2.5" height="12" rx="1" fill="#b91c1c"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Current GBVI Score</span>
+</div>
+<BigValue data={gbvi_latest} value="gbvi_score" fmt="num1" downIsGood=true/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">Basket volatility index · 0–100</div>
+</div>
+
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:8px">
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #1e3a5f">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#e8f0fa;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M6.2 1.8L1 11h12.1L7.8 1.8a.9.9 0 0 0-1.6 0Z" stroke="#1e3a5f" stroke-width="1.3" fill="none"/><line x1="7" y1="5.5" x2="7" y2="8.5" stroke="#1e3a5f" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="10.2" r="0.6" fill="#1e3a5f"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Market Risk Band</span>
+</div>
+<BigValue data={gbvi_latest} value="risk_band"/>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #15803d">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#dcfce7;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#15803d" stroke-width="1.3"/><polyline points="4.5,7 6.5,9 9.5,5" stroke="#15803d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Next Month Seasonal Signal</span>
+</div>
+<BigValue data={next_month_outlook} value="direction_signal"/>
+</div>
+
+</div>
 
 <Alert status="info">
     <b>How to read this:</b> The GBVI score measures current market stress (0–30 Stable, 31–70 Moderate, 71–100 High Alert). The seasonal signal tells you what this commodity has historically done in the coming calendar month over the last five years. A High Alert GBVI combined with a "Typically rises" signal indicates compounded upward price pressure. A Stable GBVI with "Typically falls" suggests price relief is likely.
@@ -177,33 +217,53 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 
 ## Next Month Seasonal Signal
 
-<Grid cols=4>
-    <BigValue
-        data={next_month_outlook}
-        value="avg_mom_pct"
-        title="Historical Avg MoM Change (%)"
-        fmt="num1"
-        downIsGood=true
-    />
-    <BigValue
-        data={next_month_outlook}
-        value="pct_years_up"
-        title="% of Years Prices Rose"
-        fmt="num0"
-    />
-    <BigValue
-        data={next_month_outlook}
-        value="pct_years_down"
-        title="% of Years Prices Fell"
-        fmt="num0"
-    />
-    <BigValue
-        data={next_month_outlook}
-        value="years_observed"
-        title="Years on Record"
-        fmt="num0"
-    />
-</Grid>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:8px">
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #d97706">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#fef3c7;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="1,7 3,7 4.8,2.5 6.8,11.5 8.5,5.5 10.5,7 13,7" stroke="#d97706" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Avg MoM Change</span>
+</div>
+<BigValue data={next_month_outlook} value="avg_mom_pct" fmt="num1" downIsGood=true/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">% · Historical average</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #b91c1c">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#fee2e2;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="1,11 4.5,6.5 8,8.5 13,2.5" stroke="#b91c1c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9.5,2.5 13,2.5 13,6" stroke="#b91c1c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Years Prices Rose</span>
+</div>
+<BigValue data={next_month_outlook} value="pct_years_up" fmt="num0"/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">% of observed years</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #15803d">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#dcfce7;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="1,3 4.5,7.5 8,5.5 13,11.5" stroke="#15803d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="9.5,11.5 13,11.5 13,8" stroke="#15803d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Years Prices Fell</span>
+</div>
+<BigValue data={next_month_outlook} value="pct_years_down" fmt="num0"/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">% of observed years</div>
+</div>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;border-top:3px solid #1e3a5f">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div style="width:28px;height:28px;background:#e8f0fa;border-radius:6px;display:flex;align-items:center;justify-content:center">
+<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="2" width="11" height="10" rx="1.5" stroke="#1e3a5f" stroke-width="1.3" fill="none"/><line x1="1.5" y1="5.5" x2="12.5" y2="5.5" stroke="#1e3a5f" stroke-width="1"/><line x1="5" y1="2" x2="5" y2="1" stroke="#1e3a5f" stroke-width="1.3" stroke-linecap="round"/><line x1="9" y1="2" x2="9" y2="1" stroke="#1e3a5f" stroke-width="1.3" stroke-linecap="round"/></svg>
+</div>
+<span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#57606a">Years on Record</span>
+</div>
+<BigValue data={next_month_outlook} value="years_observed" fmt="num0"/>
+<div style="font-size:10px;color:#57606a;margin-top:4px">Observation window</div>
+</div>
+
+</div>
 
 ---
 
@@ -214,10 +274,11 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
     x="month_start"
     y="national_avg"
     title="National Average Retail Price — Last 6 Months (GHS/KG)"
-    subtitle="Retail prices only · Most recent observed data"
+    subtitle="Retail prices only · Most recent 6 observed months"
     yAxisTitle="Price (GHS/KG)"
     yMin=0
     colorPalette={['#1e3a5f']}
+    markers=true
 />
 
     </Tab>
@@ -225,7 +286,7 @@ WHERE commodity_name = '${inputs.selected_commodity.value}'
 
 ## Full Seasonal Profile — All 12 Months
 
-Average month-over-month retail price change for each calendar month, based on the last five years of observations. Months above zero typically see prices rise; months below zero typically see prices fall. The range bar shows the minimum and maximum observed change across all years.
+Average month-over-month retail price change for each calendar month, based on the last five years of observations. Months above zero typically see prices rise; months below zero typically see prices fall.
 
 <BarChart
     data={seasonal_profile}
@@ -237,7 +298,8 @@ Average month-over-month retail price change for each calendar month, based on t
     colorPalette={['#2563a8']}
     fmt="num1"
     sort=false
-    labels=false
+    labels=true
+    labelFmt="num1"
 />
 
 <Alert status="info">
