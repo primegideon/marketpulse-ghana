@@ -4,22 +4,25 @@
   "scripts": {
     "dev": "evidence dev",
     "sources": "evidence sources",
-    "build": "evidence build",
+    "build:sdk": "npm --prefix node_modules/@evidence-dev/sdk run build",
+    "build": "npm run build:sdk && npm run sources && cross-env VITE_EVIDENCE_SPA=true evidence build",
     "preview": "evidence preview"
   },
   "dependencies": {
     "@evidence-dev/core-components": "4.2.0",
     "@evidence-dev/duckdb": "^2.0.0",
     "@evidence-dev/evidence": "^35.0.0",
+    "@types/estree": "1.0.5",
     "@sveltejs/kit": "^2.5.4",
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
-    "postcss-load-config": "^6.0.1",
-    "svelte-kit": "^1.2.0"
+    "postcss-load-config": "^4.0.2",
+    "svelte-kit": "^1.2.0",
+    "svelte": "4.2.12"
   },
   "devDependencies": {
-    "svelte": "^4.2.19"
+    "cross-env": "^7.0.3"
   },
   "type": "module"
 }
