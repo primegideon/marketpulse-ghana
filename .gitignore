@@ -220,6 +220,7 @@ __marimo__/
 # DuckDB database temporary files
 *.duckdb.tmp
 *.duckdb
+!ui/sources/agri_ghana/agri_ghana.duckdb
 
 # Evidence.dev build files
 .evidence/
