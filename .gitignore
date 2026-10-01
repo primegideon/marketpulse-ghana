@@ -225,3 +225,6 @@ __marimo__/
 # Evidence.dev build files
 .evidence/
 build/
+
+# Local planning and notes — not for version control
+mentor-sprint-plan.md
