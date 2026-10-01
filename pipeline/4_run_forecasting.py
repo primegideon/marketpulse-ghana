@@ -88,6 +88,22 @@ KNOWN_CHANGEPOINTS = [
     "2022-07-01",   # Ghana cedi depreciation crisis onset
 ]
 
+# ------------------------------------------------------------------
+# Train / Test Split — date-based (mentor correction)
+# ------------------------------------------------------------------
+# Previous approach: 80/20 percentage split.
+# Problem: all three macroeconomic shocks land in the test set because
+# they occur at the tail of the dataset (2020, 2022), so the model has
+# never seen a shock during training and performs poorly on the test set.
+#
+# Fix: train on 2006-01-01 → TRAIN_END (absorbs all shocks including
+# the cedi depreciation crisis). Test on TEST_START → end of dataset
+# (Jan–Jul 2023 — a clean 7-month out-of-sample window).
+# All three KNOWN_CHANGEPOINTS now fall within the training window,
+# which is exactly the intent.
+TRAIN_END   = "2022-12-31"   # last date included in training
+TEST_START  = "2023-01-01"   # first date of the held-out test window
+
 
 # ----------------------------------------------------------------
 # GHS/USD Exchange Rate — external regressor
@@ -276,6 +292,10 @@ def fit_and_forecast(
     depreciation, which will underestimate prices if depreciation continues
     but avoids injecting speculative FX assumptions into food price projections.
     """
+    logging.info(
+        f"[{commodity}] Fitting forecast model on full training window: "
+        f"{df['ds'].min().date()} → {df['ds'].max().date()} ({len(df)} months)"
+    )
     valid_changepoints = [cp for cp in KNOWN_CHANGEPOINTS if cp <= str(df["ds"].max().date())]
     model = Prophet(
         yearly_seasonality=True,
@@ -322,27 +342,52 @@ def fit_and_forecast(
 def evaluate_model(
     commodity: str,
     df: pd.DataFrame,
+    train_end: str = TRAIN_END,
+    test_start: str = TEST_START,
 ) -> tuple[float, float, float]:
     """
-    Evaluate the Prophet model on a chronological 80/20 train-test split.
+    Evaluate the Prophet model using a date-based train/test split.
     Returns (model_mape, baseline_mape, directional_acc) as whole-number percents.
 
-    Evaluation uses the most recent 20% of observations as the test set.
-    This window includes the 2022-2023 shock period, providing an honest
-    estimate of real-world forecast error during high-volatility conditions.
+    Split rationale (mentor correction):
+      - Train: 2006-01-01 → train_end (default 2022-12-31)
+        All three macroeconomic shocks (COVID 2020, Russia-Ukraine 2022,
+        cedi depreciation 2022) fall within the training window so the
+        model absorbs them rather than being surprised by them in the test set.
+      - Test: test_start → end of dataset (default 2023-01-01 → 2023-07-01)
+        A clean 7-month out-of-sample window the model has never seen.
 
-    Directional accuracy is computed on the test period only. The naive
-    baseline for direction is also computed for reference in logs.
+    Previous approach used int(n * 0.8) percentage split which placed the
+    shock period entirely in the test set, causing artificially high MAPE.
     """
-    baseline = naive_mape(df["y"])
-    n_months = len(df)
+    baseline  = naive_mape(df["y"])
+    n_months  = len(df)
 
     if n_months < MIN_TRAINING_MONTHS:
         logging.warning(f"[{commodity}] Insufficient data for evaluation ({n_months} months).")
         return np.nan, baseline, np.nan
 
-    split = int(n_months * 0.8)
-    train, test = df.iloc[:split], df.iloc[split:]
+    # Date-based split
+    train = df[df["ds"] <= pd.Timestamp(train_end)]
+    test  = df[df["ds"] >= pd.Timestamp(test_start)]
+
+    if len(train) < MIN_TRAINING_MONTHS:
+        logging.warning(
+            f"[{commodity}] Training window too short after date split "
+            f"({len(train)} months). Falling back to 80/20 split."
+        )
+        split = int(n_months * 0.8)
+        train, test = df.iloc[:split], df.iloc[split:]
+
+    if len(test) == 0:
+        logging.warning(f"[{commodity}] No test data after {test_start}. Skipping evaluation.")
+        return np.nan, baseline, np.nan
+
+    logging.info(
+        f"[{commodity}] Train: {train['ds'].min().date()} → {train['ds'].max().date()} "
+        f"({len(train)} months) | Test: {test['ds'].min().date()} → {test['ds'].max().date()} "
+        f"({len(test)} months)"
+    )
 
     valid_changepoints = [
         cp for cp in KNOWN_CHANGEPOINTS if cp <= str(train["ds"].max().date())
@@ -408,6 +453,14 @@ def main():
             f"Model MAPE = {model_mape:.1f}%  |  "
             f"Baseline MAPE = {base_mape:.1f}%  |  "
             f"Directional Accuracy = {dir_acc:.1f}%"
+        )
+        pipeline_logger.log(
+            script_name=f"4_run_forecasting:{commodity}",
+            status="SUCCESS",
+            message=(
+                f"MAPE={model_mape:.1f}% | BaseMAPE={base_mape:.1f}% | "
+                f"DirAcc={dir_acc:.1f}% | Split={TRAIN_END}/{TEST_START}"
+            ),
         )
 
         forecast_df = fit_and_forecast(commodity, df, fx_future)

@@ -113,7 +113,7 @@ and stops the pipeline if any step raises an exception (fail-fast behaviour).
 
 ## Sub-Task 3 — Corrected ML Train/Test Split
 
-**Status:** [ ] pending
+**Status:** [x] done
 
 ### Intent
 The current 80/20 chronological split puts all three macroeconomic shocks
