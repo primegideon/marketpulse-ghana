@@ -1,3 +1,8 @@
 duckdb
 pandas
 scipy
+prophet
+statsmodels
+seaborn
+matplotlib
+xgboost
