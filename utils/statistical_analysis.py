@@ -52,7 +52,7 @@ warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("statistical_analysis")
 
-DB_PATH     = "agri_ghana.duckdb"
+DB_PATH     = "ui/sources/agri_ghana/agri_ghana.duckdb"
 OUTPUTS_DIR = "outputs"
 
 STAPLES = [
@@ -243,13 +243,14 @@ def run_acf_pacf(wide: pd.DataFrame, out_dir: str):
         if commodity not in wide.columns:
             continue
         series = wide[commodity].dropna()
-        if len(series) < 24:
+        if len(series) < 12:
             log.warning(f"  [{commodity}] Insufficient data for ACF/PACF.")
             continue
 
+        max_lags = min(24, len(series) // 2 - 1)
         fig, axes = plt.subplots(1, 2, figsize=(13, 4))
-        plot_acf(series, lags=24, ax=axes[0], color="#1e3a5f", alpha=0.05)
-        plot_pacf(series, lags=24, ax=axes[1], color="#2563a8", alpha=0.05, method="ywm")
+        plot_acf(series, lags=max_lags, ax=axes[0], color="#1e3a5f", alpha=0.05)
+        plot_pacf(series, lags=max_lags, ax=axes[1], color="#2563a8", alpha=0.05, method="ywm")
 
         axes[0].set_title(f"ACF — {commodity.title()}", fontsize=11, fontweight="bold")
         axes[1].set_title(f"PACF — {commodity.title()}", fontsize=11, fontweight="bold")
@@ -358,7 +359,7 @@ def run_shock_decomposition(df_long: pd.DataFrame, fx: pd.DataFrame,
 def main():
     import time
     t0 = time.perf_counter()
-    pl = PipelineLogger(DB_PATH)
+    pl = PipelineLogger("agri_ghana.duckdb")
 
     os.makedirs(OUTPUTS_DIR, exist_ok=True)
     log.info(f"Output directory: {os.path.abspath(OUTPUTS_DIR)}")
