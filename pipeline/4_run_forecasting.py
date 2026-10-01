@@ -40,7 +40,13 @@ import numpy as np
 from prophet import Prophet
 import logging
 import warnings
+import time
+import sys
+import os
 from scipy.interpolate import interp1d
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.pipeline_logger import PipelineLogger
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -364,6 +370,8 @@ def evaluate_model(
 
 
 def main():
+    pipeline_logger = PipelineLogger(DB_PATH)
+    t0 = time.perf_counter()
     con = duckdb.connect(DB_PATH)
     logging.info(f"Database connection initialized: {DB_PATH}")
 
@@ -444,6 +452,7 @@ def main():
     total = con.execute("SELECT COUNT(*) FROM fact_price_forecasts").fetchone()[0]
     logging.info(f"Pipeline complete. Forecast table populated with {total:,} records.")
     con.close()
+    pipeline_logger.success("4_run_forecasting", rows_affected=total, duration_seconds=time.perf_counter() - t0)
 
 
 if __name__ == "__main__":

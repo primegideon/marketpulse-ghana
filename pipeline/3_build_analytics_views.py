@@ -34,6 +34,12 @@ GBVI calibration thresholds:
 import duckdb
 import pandas as pd
 import logging
+import time
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.pipeline_logger import PipelineLogger
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -46,6 +52,8 @@ URBAN_REGIONS     = ("greater accra", "ashanti")
 
 def main():
     db_path = "agri_ghana.duckdb"
+    logger = PipelineLogger(db_path)
+    t0 = time.perf_counter()
     con = duckdb.connect(db_path)
     logging.info(f"Database connection established: {db_path}")
 
@@ -231,8 +239,14 @@ def main():
     n = con.execute("SELECT COUNT(*) FROM fact_gbvi_index").fetchone()[0]
     logging.info(f"Deployed 'fact_gbvi_index' with {n:,} operational rows.")
 
+    total_rows = (
+        con.execute("SELECT COUNT(*) FROM fact_monthly_prices").fetchone()[0]
+        + con.execute("SELECT COUNT(*) FROM fact_market_spreads").fetchone()[0]
+        + n
+    )
     logging.info("Analytics Views Pipeline executed successfully.")
     con.close()
+    logger.success("3_build_analytics_views", rows_affected=total_rows, duration_seconds=time.perf_counter() - t0)
 
 if __name__ == "__main__":
     main()

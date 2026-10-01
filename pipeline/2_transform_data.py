@@ -27,11 +27,19 @@ Empirical findings:
 import duckdb
 import pandas as pd
 import logging
+import time
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.pipeline_logger import PipelineLogger
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 def main():
     db_path = "agri_ghana.duckdb"
+    logger = PipelineLogger(db_path)
+    t0 = time.perf_counter()
     logging.info(f"Connecting to database: {db_path}")
     con = duckdb.connect(db_path)
 
@@ -121,36 +129,42 @@ def main():
     WHERE raw_price_ghs > 0 AND kg_conversion_factor > 0;
     """
     
-    con.execute(sql_query)
+    try:
+        con.execute(sql_query)
 
-    row_count = con.execute("SELECT COUNT(*) FROM stg_wfp_prices").fetchone()[0]
-    logging.info(f"Transformation complete. Total records in 'stg_wfp_prices': {row_count:,}")
+        row_count = con.execute("SELECT COUNT(*) FROM stg_wfp_prices").fetchone()[0]
+        logging.info(f"Transformation complete. Total records in 'stg_wfp_prices': {row_count:,}")
 
-    logging.info("Unit Conversion Factor Distribution Mapping:")
-    mapping_df = con.execute("""
-        SELECT raw_unit, kg_conversion_factor, COUNT(*) as observation_count
-        FROM stg_wfp_prices
-        GROUP BY raw_unit, kg_conversion_factor
-        ORDER BY observation_count DESC
-    """).fetchdf()
-    print(mapping_df.to_string(index=False))
+        logging.info("Unit Conversion Factor Distribution Mapping:")
+        mapping_df = con.execute("""
+            SELECT raw_unit, kg_conversion_factor, COUNT(*) as observation_count
+            FROM stg_wfp_prices
+            GROUP BY raw_unit, kg_conversion_factor
+            ORDER BY observation_count DESC
+        """).fetchdf()
+        print(mapping_df.to_string(index=False))
 
-    logging.info("Normalized Price per KG ranges by commodity (Validation Check):")
-    sample_df = con.execute("""
-        SELECT 
-            commodity_name,
-            ROUND(MIN(price_per_kg_ghs), 2) AS min_ghs,
-            ROUND(MAX(price_per_kg_ghs), 2) AS max_ghs,
-            ROUND(AVG(price_per_kg_ghs), 2) AS avg_ghs,
-            COUNT(*) AS observation_count
-        FROM stg_wfp_prices
-        GROUP BY commodity_name
-        ORDER BY avg_ghs DESC
-    """).fetchdf()
-    print(sample_df.to_string(index=False))
-    
-    con.close()
-    logging.info("Database connection closed.")
+        logging.info("Normalized Price per KG ranges by commodity (Validation Check):")
+        sample_df = con.execute("""
+            SELECT
+                commodity_name,
+                ROUND(MIN(price_per_kg_ghs), 2) AS min_ghs,
+                ROUND(MAX(price_per_kg_ghs), 2) AS max_ghs,
+                ROUND(AVG(price_per_kg_ghs), 2) AS avg_ghs,
+                COUNT(*) AS observation_count
+            FROM stg_wfp_prices
+            GROUP BY commodity_name
+            ORDER BY avg_ghs DESC
+        """).fetchdf()
+        print(sample_df.to_string(index=False))
+
+        con.close()
+        logging.info("Database connection closed.")
+        logger.success("2_transform_data", rows_affected=row_count, duration_seconds=time.perf_counter() - t0)
+    except Exception as e:
+        con.close()
+        logger.error("2_transform_data", exception=e, duration_seconds=time.perf_counter() - t0)
+        raise
 
 if __name__ == "__main__":
     main()

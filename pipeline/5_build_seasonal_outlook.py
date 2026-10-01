@@ -34,6 +34,12 @@ Columns produced:
 
 import duckdb
 import logging
+import time
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.pipeline_logger import PipelineLogger
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -49,6 +55,8 @@ WINDOW_START = "2018-01-01"
 
 
 def main():
+    logger = PipelineLogger(DB_PATH)
+    t0 = time.perf_counter()
     con = duckdb.connect(DB_PATH)
     logging.info(f"Database connection established: {DB_PATH}")
 
@@ -143,6 +151,7 @@ def main():
 
     con.close()
     logging.info("Done.")
+    logger.success("5_build_seasonal_outlook", rows_affected=n, duration_seconds=time.perf_counter() - t0)
 
 
 if __name__ == "__main__":

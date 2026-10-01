@@ -175,16 +175,22 @@ pip install -r pipeline/requirements.txt
 
 ### 3. Run the Data Pipeline
 
-Execute the pipeline scripts in sequence to build the database from scratch:
+Run the full pipeline with a single command from the repo root:
 
 ```bash
-python pipeline/1_ingest_data.py
-python pipeline/2_transform_data.py
-python pipeline/3_build_analytics_views.py
-python pipeline/5_build_seasonal_outlook.py
+python main.py
 ```
 
-Each script logs its progress to the console. On completion, `agri_ghana.duckdb` will contain all staging tables, analytical views, and the seasonal outlook table.
+To skip Prophet ML training (faster refresh for data-only changes):
+
+```bash
+python main.py --skip-forecast
+```
+
+Each step logs its progress to the console and writes a permanent entry to the
+`pipeline_run_log` table in `agri_ghana.duckdb`. On completion, the database
+will contain all staging tables, analytical views, forecast outputs, and the
+seasonal outlook table. A summary table is printed at the end of each run.
 
 ### 4. Validate SQL Queries
 
