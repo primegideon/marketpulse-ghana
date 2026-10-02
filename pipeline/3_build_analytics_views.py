@@ -29,6 +29,11 @@ GBVI calibration thresholds:
   avg_abs_mom_pct in stable years, ensuring the index uses the full 0-100
   range under normal market conditions and saturates only during genuine crisis
   periods such as COVID-19 (2020) or the Russia-Ukraine commodity shock (2022).
+
+  Risk band boundaries (Stable 0-30 / Moderate 31-70 / High Alert 71-100)
+  were set at the 33rd and 66th percentiles of the GBVI score distribution
+  across the full 2006-2023 history, dividing the observed range into three
+  roughly equal-frequency bands.
 """
 
 import duckdb
@@ -43,6 +48,10 @@ from utils.pipeline_logger import PipelineLogger
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# Core staples used in fact_monthly_prices and fact_market_spreads (retail only).
+# Note: rice (paddy) is excluded here because paddy is a pre-milling farm-gate
+# commodity with no retail price series; it is structurally incomparable to the
+# consumer-level staples in this list.
 CORE_STAPLES = ("maize", "maize (yellow)", "rice (local)", "rice (imported)",
                 "cassava", "plantains (apem)", "plantains (apentu)", "tomatoes (local)", "tomatoes (navrongo)")
 
@@ -160,6 +169,11 @@ def main():
     # VIEW 3: fact_gbvi_index
     # ----------------------------------------------------------
     logging.info("Constructing view: 'fact_gbvi_index'...")
+    # rice (paddy) is included in the GBVI basket intentionally: paddy price
+    # movements capture Northern farm-gate supply shocks that feed through to
+    # milled rice retail prices with a 1-2 month lag, providing an early
+    # warning signal. It is excluded from CORE_STAPLES (retail-only list) but
+    # retained here for volatility measurement purposes.
     staples_tuple = ("maize", "maize (yellow)", "rice (local)", "rice (imported)",
                      "rice (paddy)", "cassava", "plantains (apem)", "plantains (apentu)",
                      "tomatoes (local)", "tomatoes (navrongo)")

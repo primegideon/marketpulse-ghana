@@ -111,6 +111,10 @@ def main():
             SUM(CASE WHEN mom_pct BETWEEN -1 AND 1 THEN 1 ELSE 0 END)  AS count_flat
         FROM with_mom
         WHERE mom_pct IS NOT NULL
+          -- MoM cap [-60%, +200%]: removes data-entry errors and unit-conversion
+          -- artefacts in the raw WFP dataset. -60% floor = maximum plausible single-
+          -- month price collapse; +200% ceiling = maximum plausible supply-shock spike
+          -- (observed upper bound in the 2006-2023 WFP Ghana history is ~180%).
           AND mom_pct BETWEEN -60 AND 200
         GROUP BY 1, 2, 3
     )

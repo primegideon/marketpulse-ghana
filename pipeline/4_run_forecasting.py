@@ -17,8 +17,9 @@ Model selection rationale:
   XGBoost achieved the highest directional accuracy (the operationally
   relevant metric for food security planning) and the lowest MAPE.
   It makes no stationarity assumptions, handles structural breaks via lag
-  feature engineering, and is well-suited to the 40-month retail price
-  series available in the WFP Ghana dataset (retail coverage begins Aug 2019).
+  feature engineering, and is well-suited to the 47-month retail price
+  series available in the WFP Ghana dataset (retail coverage begins Aug 2019,
+  spanning Aug 2019 – Jul 2023).
 
 Feature set:
   price_lag_1, price_lag_2, price_lag_3   — recent price memory
@@ -35,8 +36,11 @@ Accuracy metrics:
 
 GHS/USD exchange rate:
   Approximately 60% of Ghana's post-2021 food price increase is attributable
-  to GHS currency depreciation. Monthly rates are sourced from the World Bank
-  (indicator PA.NUS.FCRF), interpolated to monthly frequency via linear spline.
+  to GHS currency depreciation (shock decomposition in utils/statistical_analysis.py,
+  based on Pearson correlation between monthly GHS/USD changes and commodity
+  price changes across import-dependent staples, Aug 2019 – Jul 2023).
+  Monthly FX rates are sourced from the World Bank (indicator PA.NUS.FCRF),
+  interpolated to monthly frequency via linear spline.
 """
 
 import duckdb

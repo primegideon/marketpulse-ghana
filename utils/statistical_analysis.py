@@ -299,7 +299,7 @@ def run_shock_decomposition(df_long: pd.DataFrame, fx: pd.DataFrame,
 
         for month, row in sub.iterrows():
             fx_change = fx_mom.get(month, 0.0)
-            fx_contrib   = fx_change * abs(corr_coeff)
+            fx_contrib   = fx_change * corr_coeff
             residual     = row["mom_pct"] - fx_contrib
             records.append({
                 "month":       month,
