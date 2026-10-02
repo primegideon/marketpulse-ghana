@@ -9,9 +9,9 @@ title: National Pulse
 ```sql gbvi_latest
 select
     month_start,
-    round(gbvi_score, 1)      as gbvi_score,
+    round(gbvi_score, 1)           as gbvi_score,
     risk_band,
-    round(avg_abs_mom_pct, 1) as avg_abs_mom_pct
+    round(avg_abs_mom_pct, 1)      as avg_abs_mom
 from fact_gbvi_index
 order by month_start desc
 limit 1
@@ -53,7 +53,7 @@ limit 1
 ```sql gbvi_trend
 select
     month_start,
-    round(gbvi_score, 1)  as gbvi_score,
+    round(gbvi_score, 1) as gbvi_score,
     risk_band
 from fact_gbvi_index
 order by month_start

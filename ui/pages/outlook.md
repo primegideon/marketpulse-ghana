@@ -23,13 +23,13 @@ order by commodity_name
 ```sql forecast_selected
 select
     record_date,
-    round(predicted_price_ghs, 2) as projected_price,
-    round(lower_bound_ghs, 2)     as lower_bound,
-    round(upper_bound_ghs, 2)     as upper_bound,
-    round(mape_score, 1)          as mape_score,
-    round(directional_accuracy, 1) as dir_acc_pct
+    round(predicted_price_ghs, 2)  as projected_price,
+    round(lower_bound_ghs, 2)      as lower_bound,
+    round(upper_bound_ghs, 2)      as upper_bound,
+    round(mape_score, 1)           as mape,
+    round(directional_accuracy, 1) as dir_accuracy
 from fact_price_forecasts
-where commodity_name = '${inputs.forecast_commodity}'
+where commodity_name = coalesce(nullif('${inputs.forecast_commodity}', ''), 'maize')
 order by record_date
 ```
 
@@ -38,7 +38,7 @@ select
     month_start                    as record_date,
     round(avg_price_per_kg_ghs, 2) as actual_price
 from fact_monthly_prices
-where commodity_name = '${inputs.forecast_commodity}'
+where commodity_name = coalesce(nullif('${inputs.forecast_commodity}', ''), 'maize')
   and price_type = 'retail'
   and region = 'greater accra'
   and month_start >= '2022-01-01'
@@ -51,8 +51,8 @@ select
     round(f.predicted_price_ghs, 2)  as projected_price,
     round(f.lower_bound_ghs, 2)      as lower_bound,
     round(f.upper_bound_ghs, 2)      as upper_bound,
-    round(f.mape_score, 1)           as mape_pct,
-    round(f.directional_accuracy, 1) as dir_acc_pct,
+    round(f.mape_score, 1)           as mape,
+    round(f.directional_accuracy, 1) as dir_accuracy,
     s.direction_signal               as seasonal_signal
 from fact_price_forecasts f
 left join fact_seasonal_outlook s
@@ -65,11 +65,11 @@ order by f.mape_score asc
 ```sql model_comparison
 select * from (
     values
-        ('XGBoost',  61.1, 21.5),
-        ('Prophet',  47.2, 42.4),
-        ('ARIMAX',   38.9, 23.8)
-) t(model, dir_acc_pct, avg_mape_pct)
-order by dir_acc_pct desc
+        ('XGBoost', 61.1, 21.5),
+        ('Prophet', 47.2, 42.4),
+        ('ARIMAX',  38.9, 23.8)
+) t(model, dir_accuracy, avg_mape)
+order by dir_accuracy desc
 ```
 
 ---
@@ -83,14 +83,14 @@ order by dir_acc_pct desc
 
 <BigValue
   data={forecast_selected}
-  value=mape_score
+  value=mape
   title="Model MAPE (%)"
   subtitle="Avg forecast error on Jan–Jul 2023 test set"
 />
 
 <BigValue
   data={forecast_selected}
-  value=dir_acc_pct
+  value=dir_accuracy
   title="Directional Accuracy (%)"
   subtitle="% months model predicted correct direction"
 />
@@ -133,7 +133,7 @@ order by dir_acc_pct desc
   search=false
 />
 
-> `mape_pct` = average forecast error on the Jan–Jul 2023 test set (lower = more reliable). `seasonal_signal` = historical pattern for August. `dir_acc_pct` = % of months model correctly predicted direction on holdout data.
+> `mape` = average forecast error on Jan–Jul 2023 test set (lower = more reliable). `seasonal_signal` = historical Aug pattern. `dir_accuracy` = % months model correctly predicted direction.
 
   </Tab>
   <Tab label="Model Comparison">
@@ -143,7 +143,7 @@ order by dir_acc_pct desc
 <BarChart
   data={model_comparison}
   x=model
-  y=dir_acc_pct
+  y=dir_accuracy
   title="Directional Accuracy on Holdout Data (%)"
   subtitle="XGBoost selected: highest directional accuracy — the key metric for food security planning."
   colorPalette={["#2563a8"]}
@@ -153,7 +153,7 @@ order by dir_acc_pct desc
 <BarChart
   data={model_comparison}
   x=model
-  y=avg_mape_pct
+  y=avg_mape
   title="Average MAPE on Holdout Data (%)"
   subtitle="Lower is better. XGBoost achieved the lowest average forecast error."
   colorPalette={["#d97706"]}

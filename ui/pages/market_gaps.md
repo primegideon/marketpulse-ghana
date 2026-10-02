@@ -26,10 +26,10 @@ select
     round(urban_avg_price, 2)     as urban_price,
     round(producing_avg_price, 2) as rural_price,
     round(absolute_spread_ghs, 2) as spread_ghs,
-    round(spread_margin_pct, 1)   as spread_pct
+    round(spread_margin_pct, 1)   as spread_margin
 from fact_market_spreads
 where price_type = 'retail'
-  and commodity_name = '${inputs.commodity}'
+  and commodity_name = coalesce(nullif('${inputs.commodity}', ''), 'maize')
 order by month_start desc
 limit 1
 ```
@@ -39,23 +39,23 @@ select
     month_start,
     round(urban_avg_price, 2)     as urban_price,
     round(producing_avg_price, 2) as rural_price,
-    round(spread_margin_pct, 1)   as spread_pct
+    round(spread_margin_pct, 1)   as spread_margin
 from fact_market_spreads
 where price_type = 'retail'
-  and commodity_name = '${inputs.commodity}'
+  and commodity_name = coalesce(nullif('${inputs.commodity}', ''), 'maize')
 order by month_start
 ```
 
 ```sql spread_ranking
 select
     commodity_name,
-    round(avg(spread_margin_pct), 1)   as avg_spread_pct,
+    round(avg(spread_margin_pct), 1)   as avg_spread_margin,
     round(avg(absolute_spread_ghs), 2) as avg_spread_ghs
 from fact_market_spreads
 where price_type = 'retail'
   and month_start >= '2022-01-01'
 group by commodity_name
-order by avg_spread_pct desc
+order by avg_spread_margin desc
 ```
 
 ```sql market_prices
@@ -64,7 +64,7 @@ select
     round(avg(p.avg_price_per_kg_ghs), 2) as avg_price
 from fact_monthly_prices p
 where p.price_type = 'retail'
-  and p.commodity_name = '${inputs.commodity}'
+  and p.commodity_name = coalesce(nullif('${inputs.commodity}', ''), 'maize')
 group by p.region
 order by avg_price desc
 ```
@@ -94,7 +94,7 @@ order by avg_price desc
 
 <BigValue
   data={spread_latest}
-  value=spread_pct
+  value=spread_margin
   title="Spread Margin (%)"
   subtitle="Urban premium over rural"
 />
@@ -122,7 +122,7 @@ order by avg_price desc
 <AreaChart
   data={spread_trend}
   x=month_start
-  y=spread_pct
+  y=spread_margin
   title="Urban–Rural Spread Margin (%)"
   subtitle="Widening gap signals logistics/supply chain cost pressure."
   colorPalette={["#d97706"]}
@@ -136,7 +136,7 @@ order by avg_price desc
 <BarChart
   data={spread_ranking}
   x=commodity_name
-  y=avg_spread_pct
+  y=avg_spread_margin
   swapXY=true
   title="Average Urban–Rural Spread Margin by Commodity (%)"
   subtitle="Jan 2022–Jul 2023. Which commodities carry the largest geographic price burden."
