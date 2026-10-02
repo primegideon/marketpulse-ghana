@@ -2,9 +2,6 @@
 title: Six-Month Outlook
 ---
 
-# Six-Month Outlook
-### Which commodities require attention over the next six months?
-
 > **The forecast converts historical price patterns and FX dynamics into a commodity-specific food-security watchlist. All projections are model estimates, not observed prices.**
 
 ---
@@ -15,15 +12,22 @@ from fact_price_forecasts
 order by commodity_name
 ```
 
+<Dropdown
+  name=forecast_commodity
+  data={forecast_commodities}
+  value=commodity_name
+  title="Commodity"
+  defaultValue="maize"
+/>
+
 ```sql forecast_selected
 select
     record_date,
-    round(predicted_price_ghs, 2)        as projected_price,
-    round(lower_bound_ghs, 2)            as lower_bound,
-    round(upper_bound_ghs, 2)            as upper_bound,
-    round(mape_score, 1)                 as mape_score,
-    round(directional_accuracy * 100, 1) as dir_acc_pct,
-    is_forecast
+    round(predicted_price_ghs, 2) as projected_price,
+    round(lower_bound_ghs, 2)     as lower_bound,
+    round(upper_bound_ghs, 2)     as upper_bound,
+    round(mape_score, 1)          as mape_score,
+    round(directional_accuracy, 1) as dir_acc_pct
 from fact_price_forecasts
 where commodity_name = '${inputs.forecast_commodity}'
 order by record_date
@@ -44,12 +48,12 @@ order by month_start
 ```sql watchlist
 select
     f.commodity_name,
-    round(f.predicted_price_ghs, 2)        as projected_price,
-    round(f.lower_bound_ghs, 2)            as lower_bound,
-    round(f.upper_bound_ghs, 2)            as upper_bound,
-    round(f.mape_score, 1)                 as mape_pct,
-    round(f.directional_accuracy * 100, 1) as dir_acc_pct,
-    s.direction_signal                     as seasonal_signal
+    round(f.predicted_price_ghs, 2)  as projected_price,
+    round(f.lower_bound_ghs, 2)      as lower_bound,
+    round(f.upper_bound_ghs, 2)      as upper_bound,
+    round(f.mape_score, 1)           as mape_pct,
+    round(f.directional_accuracy, 1) as dir_acc_pct,
+    s.direction_signal               as seasonal_signal
 from fact_price_forecasts f
 left join fact_seasonal_outlook s
     on lower(f.commodity_name) = lower(s.commodity_name)
@@ -64,70 +68,64 @@ select * from (
         ('XGBoost',  61.1, 21.5),
         ('Prophet',  47.2, 42.4),
         ('ARIMAX',   38.9, 23.8)
-) t(model, directional_accuracy_pct, avg_mape_pct)
-order by directional_accuracy_pct desc
+) t(model, dir_acc_pct, avg_mape_pct)
+order by dir_acc_pct desc
 ```
-
-<Dropdown
-  name=forecast_commodity
-  data={forecast_commodities}
-  value=commodity_name
-  title="Select Commodity"
-  defaultValue="maize"
-/>
 
 ---
 
 <BigValue
   data={forecast_selected}
   value=projected_price
-  title="Latest Projected Price (GHS/kg)"
-  subtitle="Six-month model forecast from Jul 2023"
+  title="Projected Price (GHS/kg)"
+  subtitle="Latest forecast month"
 />
 
 <BigValue
   data={forecast_selected}
   value=mape_score
-  title="Forecast Error (MAPE %)"
-  subtitle="Average % deviation from actual on test data"
+  title="Model MAPE (%)"
+  subtitle="Avg forecast error on Jan–Jul 2023 test set"
 />
 
 <BigValue
   data={forecast_selected}
   value=dir_acc_pct
-  title="XGBoost Directional Accuracy"
-  subtitle="% of months model predicted correct direction"
+  title="Directional Accuracy (%)"
+  subtitle="% months model predicted correct direction"
 />
 
 ---
 
-## Historical Actual Prices — Recent 18 Months
+<Tabs>
+  <Tab label="Forecast Chart">
+
+## Historical Price + 3-Month Forecast
 
 <LineChart
   data={historical_for_forecast}
   x=record_date
   y=actual_price
-  title="Actual Retail Price (GHS/kg) — Greater Accra"
-  subtitle="Historical context before the forecast window begins (Aug 2023)."
+  title="Actual Retail Price (GHS/kg) — Greater Accra (Jan 2022–Jul 2023)"
+  subtitle="Historical prices leading into the forecast window."
   colorPalette={["#1e3a5f"]}
 />
-
-## Six-Month Model Forecast with Confidence Band
 
 <LineChart
   data={forecast_selected}
   x=record_date
   y={["projected_price", "lower_bound", "upper_bound"]}
   title="Six-Month Projected Price (GHS/kg)"
-  subtitle="Projected price with lower and upper confidence bounds. Uncertainty widens for more volatile commodities."
+  subtitle="Projected price with lower and upper confidence bounds. Forecast period: Aug–Oct 2023."
   colorPalette={["#7c5cd8", "#c5dce8", "#c5dce8"]}
 />
 
-> **Forecast language:** All values are model estimates. Use as directional signals for procurement or monitoring decisions, not as exact price predictions.
+> All values are model estimates. Use as directional signals — not exact price predictions.
 
----
+  </Tab>
+  <Tab label="Watchlist">
 
-## Six-Month Watchlist — All Forecast Commodities
+## Six-Month Watchlist — All Commodities
 
 <DataTable
   data={watchlist}
@@ -135,18 +133,19 @@ order by directional_accuracy_pct desc
   search=false
 />
 
-> **How to read:** `mape_pct` = average forecast error on the Jan–Jul 2023 test set (lower = more reliable). `seasonal_signal` = historical pattern for August. `dir_acc_pct` = how often the model predicted the correct price direction on holdout data.
+> `mape_pct` = average forecast error on the Jan–Jul 2023 test set (lower = more reliable). `seasonal_signal` = historical pattern for August. `dir_acc_pct` = % of months model correctly predicted direction on holdout data.
 
----
+  </Tab>
+  <Tab label="Model Comparison">
 
-## Model Validation — XGBoost vs Prophet vs ARIMAX
+## XGBoost vs Prophet vs ARIMAX — Holdout Validation
 
 <BarChart
   data={model_comparison}
   x=model
-  y=directional_accuracy_pct
-  title="Directional Accuracy on Holdout Data (Jan–Jul 2023)"
-  subtitle="XGBoost selected: highest directional accuracy — the operationally relevant metric for food security planning."
+  y=dir_acc_pct
+  title="Directional Accuracy on Holdout Data (%)"
+  subtitle="XGBoost selected: highest directional accuracy — the key metric for food security planning."
   colorPalette={["#2563a8"]}
   labels=true
 />
@@ -155,12 +154,15 @@ order by directional_accuracy_pct desc
   data={model_comparison}
   x=model
   y=avg_mape_pct
-  title="Average MAPE on Holdout Data"
-  subtitle="Lower is better. XGBoost achieved the lowest average percentage error across all tested commodities."
+  title="Average MAPE on Holdout Data (%)"
+  subtitle="Lower is better. XGBoost achieved the lowest average forecast error."
   colorPalette={["#d97706"]}
   labels=true
 />
 
+  </Tab>
+</Tabs>
+
 ---
 
-> **Forecast scope:** Aug–Oct 2023 (3 months available). Train: Aug 2019–Dec 2022. Test: Jan–Jul 2023. Model: XGBoost with lag features (price lags 1/2/3, MoM momentum, month-of-year, GHS/USD FX rate). Forecasts are model estimates; actual prices may differ.
+> **Forecast scope:** Aug–Oct 2023 (3 months). Train: Aug 2019–Dec 2022. Test: Jan–Jul 2023. Model: XGBoost with lag features (price lags 1/2/3, MoM momentum, month-of-year, GHS/USD FX). Forecasts are model estimates; actual prices may differ.

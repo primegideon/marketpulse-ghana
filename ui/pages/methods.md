@@ -2,9 +2,6 @@
 title: Methods & Data
 ---
 
-# Methods & Data
-### How the findings were produced — and how to interpret them
-
 > This page documents the scope, methods, and validation behind MarketPulse Ghana. Transparency about limitations is as important as the findings themselves.
 
 ---

@@ -2,9 +2,6 @@
 title: National Pulse
 ---
 
-# MarketPulse Ghana
-### Agricultural Price Intelligence for Food Security
-
 > **Ghana's staple-food basket moved from relative stability into a High Alert volatility phase in 2022 — driven by a cedi depreciation of over 55% between January and October 2022.**
 
 ---
@@ -33,23 +30,23 @@ limit 1
 ```sql commodity_volatility
 select
     commodity_name,
-    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct
+    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom
 from fact_monthly_prices
 where price_type = 'retail'
   and mom_inflation_pct is not null
 group by commodity_name
-order by avg_abs_mom_pct desc
+order by avg_abs_mom desc
 ```
 
 ```sql commodity_stable
 select
     commodity_name,
-    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct
+    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom
 from fact_monthly_prices
 where price_type = 'retail'
   and mom_inflation_pct is not null
 group by commodity_name
-order by avg_abs_mom_pct asc
+order by avg_abs_mom asc
 limit 1
 ```
 
@@ -57,8 +54,7 @@ limit 1
 select
     month_start,
     round(gbvi_score, 1)  as gbvi_score,
-    risk_band,
-    round(avg_mom_pct, 1) as avg_mom_pct
+    risk_band
 from fact_gbvi_index
 order by month_start
 ```
@@ -100,17 +96,20 @@ order by p.commodity_name, p.month_start
   data={commodity_volatility}
   value=commodity_name
   title="Most Volatile Commodity"
-  subtitle={"Avg ±" + commodity_volatility[0].avg_abs_mom_pct + "% MoM"}
+  subtitle={"Avg ±" + commodity_volatility[0].avg_abs_mom + "% MoM"}
 />
 
 <BigValue
   data={commodity_stable}
   value=commodity_name
   title="Most Stable Staple"
-  subtitle={"Avg ±" + commodity_stable[0].avg_abs_mom_pct + "% MoM"}
+  subtitle={"Avg ±" + commodity_stable[0].avg_abs_mom + "% MoM"}
 />
 
 ---
+
+<Tabs>
+  <Tab label="GBVI Trend">
 
 ## Ghana Basket Volatility Index — Aug 2019 to Jul 2023
 
@@ -121,30 +120,32 @@ order by p.commodity_name, p.month_start
   yMin=0
   yMax=100
   title="GBVI Score — Monthly Food Price Volatility"
-  subtitle="Bands: Stable (0–30) · Moderate (31–70) · High Alert (71–100). Higher = more unstable food basket."
+  subtitle="Bands: Stable (0–30) · Moderate (31–70) · High Alert (71–100)"
   colorPalette={["#2563a8"]}
 />
 
 > **2022 peak:** Broad food-price instability coincided with cedi depreciation exceeding 55% (Jan–Oct 2022), raising import costs across rice, plantains, and processed staples.
 
----
+  </Tab>
+  <Tab label="Volatility Ranking">
 
 ## Commodity Volatility Ranking
 
 <BarChart
   data={commodity_volatility}
   x=commodity_name
-  y=avg_abs_mom_pct
+  y=avg_abs_mom
   swapXY=true
-  title="Average Absolute Month-on-Month Price Change by Commodity (Retail)"
-  subtitle="Higher = more volatile. Peppers, onions, and plantains show greatest instability; millet and rice (local) are most stable."
+  title="Average Absolute Month-on-Month Price Change by Commodity (Retail, %)"
+  subtitle="Higher = more volatile. Peppers and onions most unstable; millet and rice (local) most stable."
   colorPalette={["#2563a8"]}
   labels=true
 />
 
----
+  </Tab>
+  <Tab label="Price Index">
 
-## Price Index by Commodity — Indexed to Aug 2019 = 100
+## Price Index — Indexed to Aug 2019 = 100
 
 <LineChart
   data={price_index}
@@ -152,8 +153,13 @@ order by p.commodity_name, p.month_start
   y=price_index
   series=commodity_name
   title="Retail Price Index (Aug 2019 = 100) — Greater Accra"
-  subtitle="A value of 150 means prices are 50% higher than August 2019. Rice (imported) rose sharply from mid-2021 alongside cedi depreciation."
+  subtitle="A value of 150 means prices are 50% higher than August 2019."
 />
+
+> Rice (imported) rose sharply from mid-2021 alongside cedi depreciation. Maize and cassava showed comparatively stable trajectories.
+
+  </Tab>
+</Tabs>
 
 ---
 

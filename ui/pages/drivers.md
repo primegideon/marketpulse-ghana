@@ -2,10 +2,7 @@
 title: Drivers & Seasons
 ---
 
-# Drivers & Seasons
-### Why are prices moving — and when does it happen every year?
-
-> **Price shocks combine macroeconomic exposure (GHS depreciation) with recurring seasonal patterns. The response should vary by commodity: import-dependent staples need macro hedging; domestically grown staples need seasonal stocking strategies.**
+> **Price shocks combine macroeconomic exposure (GHS depreciation) with recurring seasonal patterns. Response should vary by commodity: import-dependent staples need macro hedging; domestic staples need seasonal stocking strategies.**
 
 ---
 
@@ -15,12 +12,19 @@ from fact_seasonal_outlook
 order by commodity_name
 ```
 
+<Dropdown
+  name=season_commodity
+  data={commodity_list_seasonal}
+  value=commodity_name
+  title="Commodity (Seasonal Patterns tab)"
+  defaultValue="rice (imported)"
+/>
+
 ```sql mom_by_commodity
 select
     commodity_name,
     round(avg(mom_inflation_pct), 1)      as avg_mom_pct,
-    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct,
-    count(*) as months
+    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct
 from fact_monthly_prices
 where price_type = 'retail'
   and mom_inflation_pct is not null
@@ -33,31 +37,18 @@ order by avg_mom_pct desc
 select
     month_start,
     commodity_name,
-    round(avg_price_per_kg_ghs, 2) as avg_price,
-    round(mom_inflation_pct, 1)    as mom_pct,
-    round(rolling_3m_avg, 2)       as rolling_3m
+    round(rolling_3m_avg, 2) as rolling_3m
 from fact_monthly_prices
 where price_type = 'retail'
   and commodity_name in ('rice (imported)', 'rice (local)', 'maize', 'cassava', 'tomatoes (local)')
   and region = 'greater accra'
+  and rolling_3m_avg is not null
 order by commodity_name, month_start
 ```
 
 ```sql seasonal_heatmap
 select
     commodity_name,
-    month_num,
-    month_name,
-    round(avg_mom_pct, 1)  as avg_mom_pct,
-    round(pct_years_up, 0) as pct_years_up,
-    direction_signal,
-    years_observed
-from fact_seasonal_outlook
-order by commodity_name, month_num
-```
-
-```sql seasonal_commodity
-select
     month_num,
     month_name,
     round(avg_mom_pct, 1)  as avg_mom_pct,
@@ -70,24 +61,28 @@ order by month_num
 
 ---
 
-## Price Growth Since 2021 — Import-Dependent vs Domestic Staples
+<Tabs>
+  <Tab label="Post-2021 Price Growth">
+
+## Average Monthly Price Change — Jan 2021 to Jul 2023
 
 <BarChart
   data={mom_by_commodity}
   x=commodity_name
   y=avg_mom_pct
   swapXY=true
-  title="Average Monthly Price Change by Commodity (Jan 2021–Jul 2023)"
-  subtitle="Import-dependent staples (rice imported, plantains) show strongest upward pressure post-2021. Domestic staples (maize, millet, sorghum) comparatively contained."
+  title="Average Monthly Price Change by Commodity (%, Jan 2021–Jul 2023)"
+  subtitle="Import-dependent staples (rice imported, plantains) show strongest upward pressure. Domestic staples comparatively contained."
   colorPalette={["#2563a8"]}
   labels=true
 />
 
 > **FX contribution:** An estimated ~60% of the post-2021 price increase in import-dependent staples is attributable to GHS/USD depreciation, based on the project's shock-decomposition model. Domestic staples remain exposed through input costs, fuel, and substitution channels.
 
----
+  </Tab>
+  <Tab label="Rolling Price Trend">
 
-## Monthly Price Trend with 3-Month Rolling Average
+## 3-Month Rolling Average Retail Price (GHS/kg) — Greater Accra
 
 <LineChart
   data={price_trend_all}
@@ -98,9 +93,12 @@ order by month_num
   subtitle="Smoothed trend removes month-to-month noise. Sharp upward divergence in rice (imported) visible from mid-2021."
 />
 
----
+  </Tab>
+  <Tab label="Seasonal Patterns">
 
-## Seasonal Price Patterns — Commodity × Month
+## Seasonal Price Patterns by Commodity
+
+Select a commodity above to filter the table and chart below.
 
 <DataTable
   data={seasonal_heatmap}
@@ -108,34 +106,23 @@ order by month_num
   search=false
 />
 
-> **How to read:** `avg_mom_pct` = average price change in that calendar month across observed years. `pct_years_up` = how often prices rose historically in that month. `direction_signal` = dominant seasonal pattern.
->
-> **Example:** Rice tends to rise Jan–Mar (lean season) and fall Sep–Nov (harvest). Cassava shows near-opposite timing.
->
-> **Caveat:** Signals are based on 4 annual cycles (2019–2023). Treat as probabilistic guidance, not prediction.
-
----
-
-## Seasonal Detail — Single Commodity
-
-<Dropdown
-  name=season_commodity
-  data={commodity_list_seasonal}
-  value=commodity_name
-  title="Select Commodity for Seasonal Detail"
-  defaultValue="rice (imported)"
-/>
-
 <BarChart
-  data={seasonal_commodity}
+  data={seasonal_heatmap}
   x=month_name
   y=avg_mom_pct
-  title="Average Monthly Price Change by Calendar Month"
-  subtitle="Positive bars = price typically rises in that month. Negative = typically falls."
+  title="Average Monthly Price Change by Calendar Month (%)"
+  subtitle="Positive = price typically rises that month. Negative = typically falls. Based on 4 years of data (2019–2023)."
   colorPalette={["#2563a8"]}
   labels=true
 />
 
+> **Example:** Rice (imported) tends to rise Jan–Mar (lean season, post-harvest stocks depleted) and fall Sep–Nov (harvest). Cassava shows near-opposite timing.
+>
+> **Caveat:** Signals are based on 4 annual cycles only. Treat as probabilistic guidance, not prediction.
+
+  </Tab>
+</Tabs>
+
 ---
 
-> **Data scope:** Seasonal signals based on Aug 2019–Jul 2023 retail price cycles (4 years). FX contribution estimated via shock decomposition using World Bank GHS/USD monthly rates (PA.NUS.FCRF). Findings describe correlation patterns within the WFP sample; causal identification is not claimed.
+> **Data scope:** Seasonal signals based on Aug 2019–Jul 2023 retail price cycles (4 years). FX contribution estimated via shock decomposition using World Bank GHS/USD monthly rates (PA.NUS.FCRF). Causal identification is not claimed.
