@@ -12,10 +12,10 @@ title: National Pulse
 ```sql gbvi_latest
 select
     month_start,
-    round(gbvi_score, 1)   as gbvi_score,
+    round(gbvi_score, 1)      as gbvi_score,
     risk_band,
     round(avg_abs_mom_pct, 1) as avg_abs_mom_pct
-from agri_ghana.fact_gbvi_index
+from fact_gbvi_index
 order by month_start desc
 limit 1
 ```
@@ -25,7 +25,7 @@ select
     month_start,
     round(gbvi_score, 1) as gbvi_score,
     risk_band
-from agri_ghana.fact_gbvi_index
+from fact_gbvi_index
 order by gbvi_score desc
 limit 1
 ```
@@ -34,11 +34,23 @@ limit 1
 select
     commodity_name,
     round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct
-from agri_ghana.fact_monthly_prices
+from fact_monthly_prices
 where price_type = 'retail'
   and mom_inflation_pct is not null
 group by commodity_name
 order by avg_abs_mom_pct desc
+```
+
+```sql commodity_stable
+select
+    commodity_name,
+    round(avg(abs(mom_inflation_pct)), 1) as avg_abs_mom_pct
+from fact_monthly_prices
+where price_type = 'retail'
+  and mom_inflation_pct is not null
+group by commodity_name
+order by avg_abs_mom_pct asc
+limit 1
 ```
 
 ```sql gbvi_trend
@@ -47,7 +59,7 @@ select
     round(gbvi_score, 1)  as gbvi_score,
     risk_band,
     round(avg_mom_pct, 1) as avg_mom_pct
-from agri_ghana.fact_gbvi_index
+from fact_gbvi_index
 order by month_start
 ```
 
@@ -63,7 +75,7 @@ select
             rows between unbounded preceding and unbounded following
         ) * 100,
     1) as price_index
-from agri_ghana.fact_monthly_prices p
+from fact_monthly_prices p
 where p.price_type = 'retail'
   and p.commodity_name in ('rice (imported)', 'maize', 'tomatoes (local)', 'cassava', 'plantains (apentu)', 'millet')
   and p.region = 'greater accra'
@@ -81,7 +93,7 @@ order by p.commodity_name, p.month_start
   data={gbvi_peak}
   value=gbvi_score
   title="Peak GBVI Score"
-  subtitle={"Reached " + gbvi_peak[0].month_start}
+  subtitle={gbvi_peak[0].month_start}
 />
 
 <BigValue
@@ -92,11 +104,10 @@ order by p.commodity_name, p.month_start
 />
 
 <BigValue
-  data={commodity_volatility}
-  rows=2
+  data={commodity_stable}
   value=commodity_name
-  title="Most Stable Staples"
-  subtitle="Lowest average monthly price movement"
+  title="Most Stable Staple"
+  subtitle={"Avg ±" + commodity_stable[0].avg_abs_mom_pct + "% MoM"}
 />
 
 ---
@@ -110,8 +121,7 @@ order by p.commodity_name, p.month_start
   yMin=0
   yMax=100
   title="GBVI Score — Monthly Food Price Volatility"
-  subtitle="Shaded bands: Stable (0–30) · Moderate (31–70) · High Alert (71–100)"
-  labels=true
+  subtitle="Bands: Stable (0–30) · Moderate (31–70) · High Alert (71–100). Higher = more unstable food basket."
   colorPalette={["#2563a8"]}
 />
 
@@ -127,7 +137,7 @@ order by p.commodity_name, p.month_start
   y=avg_abs_mom_pct
   swapXY=true
   title="Average Absolute Month-on-Month Price Change by Commodity (Retail)"
-  subtitle="Higher = more volatile. Tomatoes, peppers, and onions show greatest short-term instability."
+  subtitle="Higher = more volatile. Peppers, onions, and plantains show greatest instability; millet and rice (local) are most stable."
   colorPalette={["#2563a8"]}
   labels=true
 />
@@ -142,11 +152,8 @@ order by p.commodity_name, p.month_start
   y=price_index
   series=commodity_name
   title="Retail Price Index (Aug 2019 = 100) — Greater Accra"
-  subtitle="Shows relative price growth since the start of the retail observation window."
-  labels=false
+  subtitle="A value of 150 means prices are 50% higher than August 2019. Rice (imported) rose sharply from mid-2021 alongside cedi depreciation."
 />
-
-> **Reading this chart:** A value of 150 means prices are 50% higher than August 2019. Rice (imported) rose sharply in 2022 alongside the cedi depreciation; maize and cassava showed comparatively stable trajectories.
 
 ---
 

@@ -11,21 +11,21 @@ title: Six-Month Outlook
 
 ```sql forecast_commodities
 select distinct commodity_name
-from agri_ghana.fact_price_forecasts
+from fact_price_forecasts
 order by commodity_name
 ```
 
 ```sql forecast_selected
 select
     record_date,
-    round(predicted_price_ghs, 2)  as projected_price,
-    round(lower_bound_ghs, 2)      as lower_bound,
-    round(upper_bound_ghs, 2)      as upper_bound,
-    round(mape_score, 1)           as mape_score,
+    round(predicted_price_ghs, 2)        as projected_price,
+    round(lower_bound_ghs, 2)            as lower_bound,
+    round(upper_bound_ghs, 2)            as upper_bound,
+    round(mape_score, 1)                 as mape_score,
     round(directional_accuracy * 100, 1) as dir_acc_pct,
     is_forecast
-from agri_ghana.fact_price_forecasts
-where commodity_name = '${inputs.forecast_commodity.value}'
+from fact_price_forecasts
+where commodity_name = '${inputs.forecast_commodity}'
 order by record_date
 ```
 
@@ -33,8 +33,8 @@ order by record_date
 select
     month_start                    as record_date,
     round(avg_price_per_kg_ghs, 2) as actual_price
-from agri_ghana.fact_monthly_prices
-where commodity_name = '${inputs.forecast_commodity.value}'
+from fact_monthly_prices
+where commodity_name = '${inputs.forecast_commodity}'
   and price_type = 'retail'
   and region = 'greater accra'
   and month_start >= '2022-01-01'
@@ -44,17 +44,17 @@ order by month_start
 ```sql watchlist
 select
     f.commodity_name,
-    round(f.predicted_price_ghs, 2)      as projected_price,
-    round(f.lower_bound_ghs, 2)          as lower_bound,
-    round(f.upper_bound_ghs, 2)          as upper_bound,
-    round(f.mape_score, 1)               as mape_pct,
+    round(f.predicted_price_ghs, 2)        as projected_price,
+    round(f.lower_bound_ghs, 2)            as lower_bound,
+    round(f.upper_bound_ghs, 2)            as upper_bound,
+    round(f.mape_score, 1)                 as mape_pct,
     round(f.directional_accuracy * 100, 1) as dir_acc_pct,
-    s.direction_signal                   as seasonal_signal
-from agri_ghana.fact_price_forecasts f
-left join agri_ghana.fact_seasonal_outlook s
+    s.direction_signal                     as seasonal_signal
+from fact_price_forecasts f
+left join fact_seasonal_outlook s
     on lower(f.commodity_name) = lower(s.commodity_name)
     and s.month_num = 8
-where f.record_date = (select max(record_date) from agri_ghana.fact_price_forecasts)
+where f.record_date = (select max(record_date) from fact_price_forecasts)
 order by f.mape_score asc
 ```
 
@@ -101,27 +101,29 @@ order by directional_accuracy_pct desc
 
 ---
 
-## Forecast Chart — Projected Price with Uncertainty Band
+## Historical Actual Prices — Recent 18 Months
 
 <LineChart
   data={historical_for_forecast}
   x=record_date
   y=actual_price
-  title="Actual vs Projected Retail Price (GHS/kg) — {inputs.forecast_commodity.value}"
-  subtitle="Historical actual prices (Greater Accra). Forecast period: Aug–Oct 2023."
+  title="Actual Retail Price (GHS/kg) — Greater Accra"
+  subtitle="Historical context before the forecast window begins (Aug 2023)."
   colorPalette={["#1e3a5f"]}
 />
+
+## Six-Month Model Forecast with Confidence Band
 
 <LineChart
   data={forecast_selected}
   x=record_date
   y={["projected_price", "lower_bound", "upper_bound"]}
-  title="Six-Month Model Forecast — {inputs.forecast_commodity.value}"
+  title="Six-Month Projected Price (GHS/kg)"
   subtitle="Projected price with lower and upper confidence bounds. Uncertainty widens for more volatile commodities."
   colorPalette={["#7c5cd8", "#c5dce8", "#c5dce8"]}
 />
 
-> **Forecast language:** All values are model estimates. Use as directional signals for procurement or monitoring decisions, not as exact price predictions. Uncertainty widens substantially for high-volatility commodities such as tomatoes and plantains.
+> **Forecast language:** All values are model estimates. Use as directional signals for procurement or monitoring decisions, not as exact price predictions.
 
 ---
 
@@ -133,7 +135,7 @@ order by directional_accuracy_pct desc
   search=false
 />
 
-> **How to read:** `mape_pct` = average forecast error on the Jan–Jul 2023 test set. Lower = more reliable. `seasonal_signal` = historical pattern for August (forecast start month). Use `dir_acc_pct` to gauge how often the model predicted the correct price direction.
+> **How to read:** `mape_pct` = average forecast error on the Jan–Jul 2023 test set (lower = more reliable). `seasonal_signal` = historical pattern for August. `dir_acc_pct` = how often the model predicted the correct price direction on holdout data.
 
 ---
 
@@ -144,7 +146,7 @@ order by directional_accuracy_pct desc
   x=model
   y=directional_accuracy_pct
   title="Directional Accuracy on Holdout Data (Jan–Jul 2023)"
-  subtitle="XGBoost selected for deployment: highest directional accuracy (operationally relevant for food security planning)."
+  subtitle="XGBoost selected: highest directional accuracy — the operationally relevant metric for food security planning."
   colorPalette={["#2563a8"]}
   labels=true
 />
@@ -161,4 +163,4 @@ order by directional_accuracy_pct desc
 
 ---
 
-> **Forecast scope:** Six months forward from July 2023 (Aug–Oct 2023 available). Train: Aug 2019–Dec 2022. Test: Jan–Jul 2023. Model: XGBoost with lag features (price lags 1/2/3 months, MoM momentum, month-of-year, GHS/USD FX rate). Forecasts are model estimates; actual prices may differ.
+> **Forecast scope:** Aug–Oct 2023 (3 months available). Train: Aug 2019–Dec 2022. Test: Jan–Jul 2023. Model: XGBoost with lag features (price lags 1/2/3, MoM momentum, month-of-year, GHS/USD FX rate). Forecasts are model estimates; actual prices may differ.
