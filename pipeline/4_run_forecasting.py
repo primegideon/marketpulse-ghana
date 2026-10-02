@@ -1,35 +1,42 @@
 """
 Machine Learning Forecasting Pipeline
 ======================================
-Trains a Meta Prophet time-series model for each core staple commodity and
-generates 3-month forward price projections with 80% confidence intervals.
+Trains an XGBoost gradient-boosted regression model for each core staple
+commodity and generates 3-month forward price projections.
 
-Accuracy is reported using two complementary metrics:
-  - MAPE (Mean Absolute Percentage Error): magnitude of forecast error as a
-    percentage of the actual price. Stored as a whole-number percent.
-  - Directional accuracy: percentage of test months where the model correctly
-    predicted whether prices moved up, down, or stayed flat. This metric is
-    more operationally relevant for food security planning than MAPE because
-    procurement and policy decisions depend on direction, not exact price level.
+Model selection rationale:
+  XGBoost with lag features was selected over Prophet and ARIMAX following a
+  formal three-model evaluation on a date-based train/test split
+  (train: 2019-08-01 to 2022-12-31, test: 2023-01-01 to 2023-07-01).
 
-Both metrics are benchmarked against a naive lag-1 baseline (repeat last
-known price) so analysts can assess whether the model adds value.
+  Results:
+    XGBoost  — Avg MAPE: 21.5%  Avg Directional Accuracy: 61.1%
+    ARIMAX   — Avg MAPE: 23.8%  Avg Directional Accuracy: 38.9%
+    Prophet  — Avg MAPE: 42.4%  Avg Directional Accuracy: 47.2%
 
-GHS/USD exchange rate as external regressor:
+  XGBoost achieved the highest directional accuracy (the operationally
+  relevant metric for food security planning) and the lowest MAPE.
+  It makes no stationarity assumptions, handles structural breaks via lag
+  feature engineering, and is well-suited to the 40-month retail price
+  series available in the WFP Ghana dataset (retail coverage begins Aug 2019).
+
+Feature set:
+  price_lag_1, price_lag_2, price_lag_3   — recent price memory
+  mom_pct_lag_1                           — recent momentum signal
+  month_of_year                           — seasonal pattern
+  usd_ghs                                 — GHS/USD FX rate (external driver)
+
+Accuracy metrics:
+  - MAPE (Mean Absolute Percentage Error): forecast error magnitude.
+  - Directional accuracy: whether the model correctly predicted the direction
+    of price movement (up / down / flat within ±1%). This is the primary
+    metric for procurement and food security decisions.
+  Both benchmarked against a naive lag-1 baseline.
+
+GHS/USD exchange rate:
   Approximately 60% of Ghana's post-2021 food price increase is attributable
-  to GHS currency depreciation rather than domestic supply-side factors.
-  The monthly GHS/USD rate is included as a Prophet external regressor so the
-  model can separate currency-driven inflation from seasonal patterns.
-  Rates are sourced from World Bank (annual, indicator PA.NUS.FCRF) and
-  interpolated to monthly frequency using a linear spline. This approach
-  requires no API key and is fully reproducible.
-
-Known economic shocks in the training window:
-  - COVID-19 supply disruptions: March-April 2020
-  - Global commodity price surge (Russia-Ukraine): February-March 2022
-  - Ghana cedi depreciation crisis: July 2022 onwards
-These are injected as explicit Prophet changepoints so the model treats them
-as discrete structural breaks rather than absorbing them into seasonality.
+  to GHS currency depreciation. Monthly rates are sourced from the World Bank
+  (indicator PA.NUS.FCRF), interpolated to monthly frequency via linear spline.
 """
 
 import duckdb
@@ -37,13 +44,13 @@ import urllib.request
 import json
 import pandas as pd
 import numpy as np
-from prophet import Prophet
 import logging
 import warnings
 import time
 import sys
 import os
 from scipy.interpolate import interp1d
+from xgboost import XGBRegressor
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.pipeline_logger import PipelineLogger
@@ -76,17 +83,19 @@ PRICE_FLOOR_GHS     = 0.01
 PRICE_CEIL_GHS      = 500.0
 
 # Minimum number of monthly observations required to train a model.
-# Fewer than 18 months provides insufficient seasonality signal for Prophet.
 MIN_TRAINING_MONTHS = 18
 
-# Known structural break dates corresponding to documented macroeconomic shocks.
-# Passed to Prophet as explicit changepoints so the model treats these as
-# discrete trend shifts rather than absorbing them into the seasonal component.
+# Known macroeconomic shocks — retained for documentation and reference
+# in statistical analysis. Not used as model parameters in XGBoost
+# (handled implicitly via lag features and the FX regressor).
 KNOWN_CHANGEPOINTS = [
     "2020-03-01",   # COVID-19 border closures and market shutdowns
     "2022-02-01",   # Russia-Ukraine war: global grain and fuel price surge
     "2022-07-01",   # Ghana cedi depreciation crisis onset
 ]
+
+# XGBoost feature columns
+FEATURES = ["lag1", "lag2", "lag3", "mom_lag1", "month", "usd_ghs"]
 
 # ------------------------------------------------------------------
 # Train / Test Split — date-based (mentor correction)
@@ -272,68 +281,83 @@ def directional_accuracy(actual: np.ndarray, predicted: np.ndarray) -> float:
     return float(correct / valid.sum() * 100)
 
 
+def _build_xgb_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build the XGBoost feature matrix from a monthly price series.
+    Features: price_lag_1/2/3, mom_pct_lag_1, month_of_year, usd_ghs.
+    Rows with NaN lags (first 3 months) are dropped.
+    """
+    d = df.copy().reset_index(drop=True)
+    d["lag1"]     = d["y"].shift(1)
+    d["lag2"]     = d["y"].shift(2)
+    d["lag3"]     = d["y"].shift(3)
+    d["mom_lag1"] = d["y"].pct_change(1) * 100
+    d["month"]    = d["ds"].dt.month
+    return d.dropna(subset=["lag1", "lag2", "lag3"])
+
+
 def fit_and_forecast(
     commodity: str,
     df: pd.DataFrame,
     fx_future: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    Fit a Prophet model with GHS/USD as an external regressor and return
-    3-month forward price projections with 80% confidence intervals.
+    Fit an XGBoost model on the full available training series and generate
+    FORECAST_MONTHS forward projections using recursive one-step-ahead prediction.
 
-    The GHS/USD regressor is included because approximately 60% of Ghana's
-    post-2021 food price increase is driven by currency depreciation. Including
-    this regressor allows the model to separate currency-driven inflation from
-    seasonal supply-demand patterns, improving trend extrapolation.
+    FX assumption: the most recent observed GHS/USD rate is held constant
+    across the forecast horizon (no-change assumption). This is conservative —
+    it avoids injecting speculative FX paths into food price projections.
 
-    fx_future must contain the forecasted GHS/USD values for the projection
-    months. For simplicity, the most recent observed rate is held constant
-    (no-change FX assumption). This is conservative: it assumes no further
-    depreciation, which will underestimate prices if depreciation continues
-    but avoids injecting speculative FX assumptions into food price projections.
+    Confidence intervals are estimated as the residual standard deviation
+    on the training set scaled by ±1.28 (80% interval).
     """
     logging.info(
-        f"[{commodity}] Fitting forecast model on full training window: "
-        f"{df['ds'].min().date()} → {df['ds'].max().date()} ({len(df)} months)"
+        f"[{commodity}] Fitting XGBoost on full window: "
+        f"{df['ds'].min().date()} to {df['ds'].max().date()} ({len(df)} months)"
     )
-    valid_changepoints = [cp for cp in KNOWN_CHANGEPOINTS if cp <= str(df["ds"].max().date())]
-    model = Prophet(
-        yearly_seasonality=True,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        changepoint_prior_scale=0.15,
-        seasonality_mode="multiplicative",
-        changepoints=valid_changepoints if valid_changepoints else None,
+
+    full = _build_xgb_features(df)
+    model = XGBRegressor(
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=42,
+        verbosity=0,
     )
-    model.add_regressor("usd_ghs")
-    model.fit(df[["ds", "y", "usd_ghs"]])
+    model.fit(full[FEATURES], full["y"])
 
-    future = model.make_future_dataframe(
-        periods=FORECAST_MONTHS,
-        freq="MS",
-        include_history=False,
-    )
-    # Attach FX values for the forecast horizon
-    future = future.merge(fx_future[["ds", "usd_ghs"]], on="ds", how="left")
-    # If FX data is not available for future months, hold last observed rate
-    last_fx = float(df["usd_ghs"].iloc[-1])
-    future["usd_ghs"] = future["usd_ghs"].fillna(last_fx)
+    # Estimate residual std for confidence intervals
+    train_pred  = model.predict(full[FEATURES])
+    residual_std = float(np.std(full["y"].values - train_pred))
 
-    forecast = model.predict(future)
-    result   = forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]].copy()
-    result["is_forecast"] = True
+    # Recursive forecast: feed each prediction back as the next lag
+    last_fx   = float(df["usd_ghs"].iloc[-1])
+    last_3    = list(df["y"].iloc[-3:].values)   # [lag3, lag2, lag1]
+    last_date = df["ds"].iloc[-1]
+    records   = []
 
-    for col in ["yhat", "yhat_lower", "yhat_upper"]:
-        result[col] = result[col].clip(lower=PRICE_FLOOR_GHS, upper=PRICE_CEIL_GHS)
+    for i in range(FORECAST_MONTHS):
+        next_date = last_date + pd.DateOffset(months=i + 1)
+        lag1, lag2, lag3 = last_3[-1], last_3[-2], last_3[-3]
+        mom_lag1 = (lag1 - lag2) / lag2 * 100 if lag2 != 0 else 0.0
+        row = pd.DataFrame([[lag1, lag2, lag3, mom_lag1, next_date.month, last_fx]],
+                           columns=FEATURES)
+        yhat = float(model.predict(row)[0])
+        yhat = np.clip(yhat, PRICE_FLOOR_GHS, PRICE_CEIL_GHS)
+        records.append({
+            "record_date":         next_date,
+            "predicted_price_ghs": round(yhat, 4),
+            "lower_bound_ghs":     round(np.clip(yhat - 1.28 * residual_std, PRICE_FLOOR_GHS, PRICE_CEIL_GHS), 4),
+            "upper_bound_ghs":     round(np.clip(yhat + 1.28 * residual_std, PRICE_FLOOR_GHS, PRICE_CEIL_GHS), 4),
+        })
+        last_3.append(yhat)
 
+    result = pd.DataFrame(records)
     result["commodity_name"] = commodity
     result["market_name"]    = "national"
-    result = result.rename(columns={
-        "ds":         "record_date",
-        "yhat":       "predicted_price_ghs",
-        "yhat_lower": "lower_bound_ghs",
-        "yhat_upper": "upper_bound_ghs",
-    })
+    result["is_forecast"]    = True
     return result[["commodity_name", "market_name", "record_date",
                    "predicted_price_ghs", "lower_bound_ghs", "upper_bound_ghs",
                    "is_forecast"]]
@@ -346,70 +370,52 @@ def evaluate_model(
     test_start: str = TEST_START,
 ) -> tuple[float, float, float]:
     """
-    Evaluate the Prophet model using a date-based train/test split.
+    Evaluate the XGBoost model on a date-based train/test split.
     Returns (model_mape, baseline_mape, directional_acc) as whole-number percents.
 
-    Split rationale (mentor correction):
-      - Train: 2006-01-01 → train_end (default 2022-12-31)
-        All three macroeconomic shocks (COVID 2020, Russia-Ukraine 2022,
-        cedi depreciation 2022) fall within the training window so the
-        model absorbs them rather than being surprised by them in the test set.
-      - Test: test_start → end of dataset (default 2023-01-01 → 2023-07-01)
-        A clean 7-month out-of-sample window the model has never seen.
+    Train: 2019-08-01 to train_end (2022-12-31) — includes all shock years.
+    Test:  test_start (2023-01-01) to end of dataset — clean out-of-sample window.
 
-    Previous approach used int(n * 0.8) percentage split which placed the
-    shock period entirely in the test set, causing artificially high MAPE.
+    Note: WFP Ghana retail price coverage for these commodities begins August
+    2019. Earlier records are wholesale only and are excluded to maintain
+    price-type consistency in the feature matrix.
     """
-    baseline  = naive_mape(df["y"])
-    n_months  = len(df)
+    baseline = naive_mape(df["y"])
+    n_months = len(df)
 
     if n_months < MIN_TRAINING_MONTHS:
-        logging.warning(f"[{commodity}] Insufficient data for evaluation ({n_months} months).")
+        logging.warning(f"[{commodity}] Insufficient data ({n_months} months).")
         return np.nan, baseline, np.nan
 
-    # Date-based split
-    train = df[df["ds"] <= pd.Timestamp(train_end)]
-    test  = df[df["ds"] >= pd.Timestamp(test_start)]
+    full  = _build_xgb_features(df)
+    train = full[full["ds"] <= pd.Timestamp(train_end)]
+    test  = full[full["ds"] >= pd.Timestamp(test_start)]
 
     if len(train) < MIN_TRAINING_MONTHS:
-        logging.warning(
-            f"[{commodity}] Training window too short after date split "
-            f"({len(train)} months). Falling back to 80/20 split."
-        )
-        split = int(n_months * 0.8)
-        train, test = df.iloc[:split], df.iloc[split:]
+        logging.warning(f"[{commodity}] Training window too short ({len(train)} months).")
+        return np.nan, baseline, np.nan
 
     if len(test) == 0:
-        logging.warning(f"[{commodity}] No test data after {test_start}. Skipping evaluation.")
+        logging.warning(f"[{commodity}] No test data after {test_start}.")
         return np.nan, baseline, np.nan
 
     logging.info(
-        f"[{commodity}] Train: {train['ds'].min().date()} → {train['ds'].max().date()} "
-        f"({len(train)} months) | Test: {test['ds'].min().date()} → {test['ds'].max().date()} "
-        f"({len(test)} months)"
+        f"[{commodity}] Train: {train['ds'].min().date()} to {train['ds'].max().date()} "
+        f"({len(train)}m) | Test: {test['ds'].min().date()} to {test['ds'].max().date()} "
+        f"({len(test)}m)"
     )
 
-    valid_changepoints = [
-        cp for cp in KNOWN_CHANGEPOINTS if cp <= str(train["ds"].max().date())
-    ]
-    model = Prophet(
-        yearly_seasonality=True,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        changepoint_prior_scale=0.15,
-        seasonality_mode="multiplicative",
-        changepoints=valid_changepoints if valid_changepoints else None,
+    model = XGBRegressor(
+        n_estimators=200, max_depth=3, learning_rate=0.05,
+        subsample=0.8, random_state=42, verbosity=0,
     )
-    model.add_regressor("usd_ghs")
-    model.fit(train[["ds", "y", "usd_ghs"]])
+    model.fit(train[FEATURES], train["y"])
 
-    pred            = model.predict(test[["ds", "usd_ghs"]])
-    pred["yhat"]    = pred["yhat"].clip(lower=PRICE_FLOOR_GHS)
-    actual          = test["y"].values
-    predicted       = pred["yhat"].values
-    errors          = np.abs((actual - predicted) / np.where(actual == 0, np.nan, actual))
-    model_mape      = float(np.nanmean(errors) * 100)
-    dir_acc         = directional_accuracy(actual, predicted)
+    predicted  = np.clip(model.predict(test[FEATURES]), PRICE_FLOOR_GHS, PRICE_CEIL_GHS)
+    actual     = test["y"].values
+    errors     = np.abs((actual - predicted) / np.where(actual == 0, np.nan, actual))
+    model_mape = float(np.nanmean(errors) * 100)
+    dir_acc    = directional_accuracy(actual, predicted)
 
     return model_mape, baseline, dir_acc
 

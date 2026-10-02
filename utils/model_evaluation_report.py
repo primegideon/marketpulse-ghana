@@ -48,7 +48,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.pipeline_logger import PipelineLogger
 from pipeline import run_forecasting_4 as forecasting
 
-DB_PATH     = "ui/sources/agri_ghana/agri_ghana.duckdb"
+# The root agri_ghana.duckdb contains the full 2006-2023 stg_wfp_prices history.
+# The deployed ui/sources copy only surfaces post-2019 data via fact_monthly_prices.
+# To avoid file-lock conflicts, work from a temp copy of the root database.
+import shutil
+import tempfile
+
+def _get_db_path() -> str:
+    root = "agri_ghana.duckdb"
+    try:
+        tmp = os.path.join(tempfile.gettempdir(), "agri_ghana_eval.duckdb")
+        shutil.copy2(root, tmp)
+        log.info(f"Working from temp DB copy: {tmp}")
+        return tmp
+    except Exception as e:
+        log.warning(f"Could not copy root DB ({e}). Falling back to deployed copy.")
+        return "ui/sources/agri_ghana/agri_ghana.duckdb"
+
 OUTPUTS_DIR = "outputs"
 
 STAPLES = [
@@ -76,18 +92,38 @@ DIR_ACC_THRESHOLD = 60.0
 
 def _load_series(con: duckdb.DuckDBPyConnection, commodity: str,
                  fx: pd.DataFrame) -> pd.DataFrame:
-    """Load monthly retail price series for a commodity, joined with FX rate."""
-    df = con.execute(f"""
-        SELECT
-            month_start::DATE AS ds,
-            ROUND(AVG(avg_price_per_kg_ghs), 4) AS y
-        FROM fact_monthly_prices
-        WHERE commodity_name = '{commodity}'
-          AND price_type = 'retail'
-          AND avg_price_per_kg_ghs IS NOT NULL
-        GROUP BY month_start
-        ORDER BY month_start
-    """).fetchdf()
+    """
+    Load monthly retail price series for a commodity joined with the GHS/USD
+    FX rate. Queries stg_wfp_prices (full 2006-2023 history) when available,
+    falling back to fact_monthly_prices (post-2019 deployed subset) otherwise.
+    """
+    tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
+    if "stg_wfp_prices" in tables:
+        df = con.execute(f"""
+            SELECT
+                DATE_TRUNC('month', record_date)::DATE AS ds,
+                ROUND(AVG(price_per_kg_ghs), 4) AS y
+            FROM stg_wfp_prices
+            WHERE commodity_name = '{commodity}'
+              AND price_type = 'retail'
+              AND price_per_kg_ghs BETWEEN 0.05 AND 500.0
+            GROUP BY DATE_TRUNC('month', record_date)::DATE
+            HAVING COUNT(*) >= 3
+            ORDER BY ds
+        """).fetchdf()
+    else:
+        log.warning("stg_wfp_prices not found — using fact_monthly_prices (limited history).")
+        df = con.execute(f"""
+            SELECT
+                month_start::DATE AS ds,
+                ROUND(AVG(avg_price_per_kg_ghs), 4) AS y
+            FROM fact_monthly_prices
+            WHERE commodity_name = '{commodity}'
+              AND price_type = 'retail'
+              AND avg_price_per_kg_ghs IS NOT NULL
+            GROUP BY month_start
+            ORDER BY month_start
+        """).fetchdf()
     df["ds"] = pd.to_datetime(df["ds"])
     df = df.merge(fx[["ds", "usd_ghs"]], on="ds", how="left")
     df["usd_ghs"] = df["usd_ghs"].ffill().bfill()
@@ -336,8 +372,9 @@ def main():
     pl = PipelineLogger("agri_ghana.duckdb")
     os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
+    db_path = _get_db_path()
     fx  = forecasting.build_monthly_fx_series(start="2006-01-01", end="2023-07-01")
-    con = duckdb.connect(DB_PATH, read_only=True)
+    con = duckdb.connect(db_path, read_only=True)
 
     records = []
 
