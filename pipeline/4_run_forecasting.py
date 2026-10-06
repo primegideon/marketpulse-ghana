@@ -36,9 +36,9 @@ Accuracy metrics:
 
 GHS/USD exchange rate:
   Approximately 60% of Ghana's post-2021 food price increase is attributable
-  to GHS currency depreciation (shock decomposition in utils/statistical_analysis.py,
-  based on Pearson correlation between monthly GHS/USD changes and commodity
-  price changes across import-dependent staples, Aug 2019 – Jul 2023).
+    to GHS currency depreciation, estimated using correlation between monthly
+    GHS/USD changes and commodity price changes across import-dependent staples
+    (Aug 2019 – Jul 2023).
   Monthly FX rates are sourced from the World Bank (indicator PA.NUS.FCRF),
   interpolated to monthly frequency via linear spline.
 """
