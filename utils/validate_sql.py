@@ -6,7 +6,7 @@ import duckdb
 import re
 import sys
 
-DB_PATH = "agri_ghana.duckdb"
+DB_PATH = "ui/sources/agri_ghana/agri_ghana.duckdb"
 PAGES = [
     "ui/pages/index.md",
     "ui/pages/commodities.md",
