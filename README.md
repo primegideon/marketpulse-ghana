@@ -6,7 +6,7 @@
 [![UI: Evidence.dev](https://img.shields.io/badge/UI-Evidence.dev-blueviolet.svg)](#)
 [![CI: GitHub Actions](https://img.shields.io/badge/CI-GitHub%20Actions-black.svg)](#)
 
-MarketPulse Ghana is an end-to-end open-source data pipeline and business intelligence platform that tracks and analyses agricultural commodity prices across Ghana's major markets. It translates raw UN food price data into inflation signals, supply chain insights, a composite volatility index, and a data-driven seasonal price outlook — for policymakers, agricultural economists, and food security analysts.
+MarketPulse Ghana is an internship capstone exploring how historical food-price data can be made easier to compare and use by small and medium-sized enterprises (SMEs) in Ghana's food and agricultural value chains. It combines a data-transformation pipeline, analytical dashboard, and a forecasting evaluation. The current HDX resource contains observations through July 2023, so the dashboard describes historical data rather than live market prices. The specific SME segment and business decision this project should support remain to be defined.
 
 ---
 
@@ -14,16 +14,17 @@ MarketPulse Ghana is an end-to-end open-source data pipeline and business intell
 
 ### The Business Problem
 
-Ghana's food price landscape is fragmented across dozens of regional markets with no unified analytical layer. Raw price data published by the UN World Food Programme exists as flat CSV exports containing inconsistent units, 25 commodity types, and 10 administrative regions. Without a structured pipeline, identifying which commodities are driving inflation, which regions are absorbing the highest food cost pressures, and where supply chain inefficiencies are widening the gap between farm-gate and urban retail prices requires hours of manual spreadsheet work — and still produces no forward-looking signal.
+SMEs that buy, sell, process, or distribute food may need to compare historical prices when planning purchases, inventory, sourcing, or sales. The WFP food-price resource is published as records across commodities, markets, time periods, and units; comparisons require careful standardisation and clear treatment of data-quality issues. This capstone will investigate what the historical records can reliably show and which SME decisions, if any, the resulting insights can support. The primary SME user and decision will be confirmed before the analysis is designed around them.
 
-### The Value Delivered
+### Intended Value
 
-MarketPulse Ghana closes that gap with a fully automated, code-driven analytics stack that runs from raw CSV to a live web dashboard.
+The project aims to turn a documented historical data snapshot into comparable analysis and a dashboard, then separately evaluate whether forecasting adds useful information. It is not currently a live price-monitoring service.
 
-- **Unified price intelligence:** Normalises 18 different local market units into a single standardised GHS/KG metric, making cross-commodity and cross-region comparison analytically valid.
-- **Supply chain transparency:** Quantifies the exact urban markup over farm-gate prices for every monitored commodity, isolating where supply chain friction is adding cost for urban households.
-- **Seasonal price outlook:** Provides a data-driven seasonal signal per commodity — what the price has historically done in the coming calendar month, based on five years of retail observations — grounded in fact rather than model extrapolation.
-- **Composite volatility index:** Produces the Ghana Basket Volatility Index (GBVI), a single 0–100 composite score summarising price stability across Ghana's five primary staples.
+- **Comparable price records:** Standardises supported units into a common price measure, with conversion assumptions documented and checked.
+- **Market comparisons:** Shows historical price differences across selected markets and regions. These differences are descriptive and do not, by themselves, identify supply-chain causes or margins.
+- **Historical patterns:** Summarises observed price movements and seasonal patterns, while showing their coverage and limitations.
+- **Volatility summary:** Provides a composite volatility indicator for a clearly defined commodity basket; basket membership and interpretation must be documented.
+- **Forecast evaluation:** Tests whether a forecasting approach adds value over a simple baseline. Any forecast is an experimental historical evaluation, not a current price quote.
 
 ---
 
