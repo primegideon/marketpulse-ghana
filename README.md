@@ -1,248 +1,59 @@
 # MarketPulse Ghana
-### Data Pipeline and Dashboard for Agricultural Price Intelligence
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Database: DuckDB](https://img.shields.io/badge/Database-DuckDB-yellow.svg)](#)
-[![UI: Evidence.dev](https://img.shields.io/badge/UI-Evidence.dev-blueviolet.svg)](#)
-[![CI: GitHub Actions](https://img.shields.io/badge/CI-GitHub%20Actions-black.svg)](#)
+MarketPulse Ghana is an AmaliTech internship capstone exploring how historical food-price data can help Ghanaian food SMEs compare markets and understand price trends and seasonality. The project will follow the roadmap in [general_ml_roadmap.html](general_ml_roadmap.html), with analysis and useful reporting as the core deliverables. Forecasting is a possible extension, not a requirement.
 
-MarketPulse Ghana is an internship capstone exploring how historical food-price data can be made easier to compare and use by small and medium-sized enterprises (SMEs) in Ghana's food and agricultural value chains. It combines a data-transformation pipeline, analytical dashboard, and a forecasting evaluation. The current HDX resource contains observations through July 2023, so the dashboard describes historical data rather than live market prices. The specific SME segment and business decision this project should support remain to be defined.
+## Project question
 
----
+How can historical WFP food-price observations help Ghanaian food businesses make better-informed decisions about where and when to buy or sell selected commodities?
 
-## Executive Summary
+The intended audience includes traders, retailers, food-service businesses, and processors. The available data can support like-for-like price comparisons, historical trend analysis, and seasonal analysis. It does not include individual businesses' purchase costs, transport costs, inventory, sales, or margins, so the project cannot estimate a specific SME's profitability.
 
-### The Business Problem
+## Data
 
-SMEs that buy, sell, process, or distribute food may need to compare historical prices when planning purchases, inventory, sourcing, or sales. The WFP food-price resource is published as records across commodities, markets, time periods, and units; comparisons require careful standardisation and clear treatment of data-quality issues. This capstone will investigate what the historical records can reliably show and which SME decisions, if any, the resulting insights can support. The primary SME user and decision will be confirmed before the analysis is designed around them.
+- Source: [WFP Ghana Food Prices on HDX](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320)
+- CSV resource: [wfp_food_prices_gha.csv](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320/resource/e877350b-146f-4fa7-8690-db9605eea78c/download/wfp_food_prices_gha.csv)
+- Local database: `agri_ghana.duckdb`
+- Raw table: `raw_wfp_prices`
 
-### Intended Value
+The local snapshot contains 37,765 rows from January 2006 through July 2023. It includes wholesale and retail observations across different commodities, markets, and units. Prices should only be compared when their commodity, unit, price type, and time period are compatible.
 
-The project aims to turn a documented historical data snapshot into comparable analysis and a dashboard, then separately evaluate whether forecasting adds useful information. It is not currently a live price-monitoring service.
+This snapshot is historical, not a live market feed. Check the HDX resource for a newer release before presenting prices as current or attempting a forward-looking forecast. The EDA also found inconsistent USD conversions in some rows; treat the local-currency price as the primary measure unless currency handling is reviewed and justified.
 
-- **Comparable price records:** Standardises supported units into a common price measure, with conversion assumptions documented and checked.
-- **Market comparisons:** Shows historical price differences across selected markets and regions. These differences are descriptive and do not, by themselves, identify supply-chain causes or margins.
-- **Historical patterns:** Summarises observed price movements and seasonal patterns, while showing their coverage and limitations.
-- **Volatility summary:** Provides a composite volatility indicator for a clearly defined commodity basket; basket membership and interpretation must be documented.
-- **Forecast evaluation:** Tests whether a forecasting approach adds value over a simple baseline. Any forecast is an experimental historical evaluation, not a current price quote.
+## Roadmap and status
 
----
+The roadmap is a guide. Each phase should be reviewed before its decisions are treated as settled.
 
-## System Architecture
+1. **EDA:** The notebook has been executed. Its findings are marked provisional and its Phase 2 decisions remain open. The next step is to review those findings together, confirm the data-quality interpretations, and agree on the analysis scope.
+2. **Preprocessing and feature engineering:** After EDA review, define comparable price series, document treatment of price flags and outliers, handle gaps, and create features appropriate to the chosen SME questions. Keep the raw source table unchanged.
+3. **Modeling, if useful:** First select series with adequate coverage and establish simple time-series baselines. Do not add a forecast unless it provides useful performance beyond those baselines.
+4. **Evaluation:** Use chronological or rolling-origin evaluation rather than a random split. Report forecast errors and uncertainty, and state the period and data release used.
+5. **Application and reporting:** Build an Evidence.dev dashboard for validated descriptive insights. Evidence.dev and Vercel are the initial deployment ideas, not commitments; decide the final application scope after the analysis is clear.
 
-The project follows a unified code-driven ELT architecture. A local DuckDB database acts as the single analytical hub between the ingestion layer and the web interface. No external cloud services or paid infrastructure are required.
+Any forecast should be presented as an evaluated prototype, not as a guarantee or current-price recommendation. If the data is not refreshed, make its July 2023 end date prominent.
 
-### Pipeline Dataflow
+## EDA notebook
 
-```text
-WFP Ghana Food Prices CSV (HDX)
-        |
-        v
-  [ 1_ingest_data.py ]
-  raw_wfp_prices (DuckDB staging table)
-        |
-        v
-  [ 2_transform_data.py ]
-  stg_wfp_prices (cleaned, unit-normalised to GHS/KG)
-        |
-        v
-  [ 3_build_analytics_views.py ]
-  fact_monthly_prices  /  fact_market_spreads  /  fact_gbvi_index
-        |
-        v
-  [ 5_build_seasonal_outlook.py ]
-  fact_seasonal_outlook (historical seasonal MoM statistics)
-        |
-        v
-  [ Evidence.dev UI ]  -->  Vercel (production deployment)
-```
+The analysis is in [notebooks/exploratory_data_analysis.ipynb](notebooks/exploratory_data_analysis.ipynb). It covers data overview, series inventory, data quality, duplicates and consistency, coverage, descriptive statistics, distributions, visualization, outlier detection, and correlation analysis.
 
-### Technology Matrix
+The executed EDA reports no missing values, exact duplicate rows, or duplicate record keys. It flags 335 rows with inconsistent USD conversion, 873 cross-market outliers, and 714 month-to-month spikes for investigation; these flags are not automatic grounds for deleting observations. The notebook's findings and decisions still require review before preprocessing begins.
 
-| Layer | Tool | Purpose |
-| :--- | :--- | :--- |
-| Data Source | WFP HDX Ghana Food Prices CSV | Raw commodity price observations across Ghana's markets |
-| Storage and Warehouse | DuckDB | In-process OLAP database; single source of truth for all layers |
-| Ingestion and Transformation | Python, Pandas | Unit normalisation, deduplication, and analytical view construction |
-| BI Dashboard | Evidence.dev | SQL-first markdown dashboard framework; queries DuckDB directly |
-| Deployment | Vercel, GitHub Actions | Static site hosting and automated pipeline validation CI |
+## Run the notebook
 
----
+Use Python 3.12 or a compatible version. From the project root in PowerShell:
 
-## Database Schema
-
-### Schema Objects
-
-| Object | Type | Layer | Description |
-| :--- | :--- | :--- | :--- |
-| `raw_wfp_prices` | Table | Staging | Unmodified source records loaded directly from the WFP CSV |
-| `stg_wfp_prices` | Table | Staging | Cleaned dataset with all units normalised to GHS per KG |
-| `fact_monthly_prices` | View | Analytics | Monthly average prices by commodity and region, with MoM inflation %, 3-month and 6-month rolling averages, and price type |
-| `fact_market_spreads` | View | Analytics | Farm-gate vs urban price gap by commodity, with absolute spread (GHS) and percentage margin |
-| `fact_gbvi_index` | View | Analytics | Monthly GBVI composite score, risk band classification, and constituent statistics |
-| `fact_seasonal_outlook` | Table | Analytics | Historical MoM statistics by commodity and calendar month: average change, range, direction frequency, and directional signal |
-
-### Core Metric — The Ghana Basket Volatility Index (GBVI)
-
-The GBVI is a composite 0–100 score computed monthly across Ghana's five primary consumer staples: Maize, Rice, Cassava, Plantain, and Tomatoes. It is derived from the average absolute month-over-month price change (60% weight) and its cross-commodity standard deviation (40% weight), normalised against calibrated thresholds derived from the stable-year distribution in the 2006–2023 dataset.
-
-| Score Range | Risk Band | Interpretation |
-| :--- | :--- | :--- |
-| 0 – 30 | Stable | Price environment is within normal seasonal variation |
-| 31 – 70 | Moderate | Inflationary pressure is present; monitoring recommended |
-| 71 – 100 | High Alert | Significant price instability; intervention consideration warranted |
-
-### Unit Conversion Reference
-
-All source prices are normalised to GHS per kilogram. Key conversion factors are empirically derived from the WFP Ghana dataset (38,917 rows, 2006–2023):
-
-| Unit | Commodity | Factor | Basis |
-| :--- | :--- | :--- | :--- |
-| bunch | plantains (apem) | 9 kg | WFP VAAM field standard for large cooking variety |
-| bunch | plantains (apentu) | 6 kg | WFP VAAM field standard for small dessert variety |
-| 100 tubers | cassava | 50 kg | 0.5 kg per tuber; standard small cassava tuber weight |
-| 100 tubers | yam | 100 kg | 1.0 kg per tuber; yam tubers substantially heavier than cassava |
-| N kg bag | all | N kg | Numeric prefix extracted via regex |
-
-### Analytical Questions Addressed
-
-1. **Volatility Ranking:** Which staple crops have experienced the highest retail price fluctuation over the full observation period?
-2. **Geographic Price Spread:** What is the percentage price gap between farm-gate prices in producing regions and urban consumer market prices?
-3. **Seasonality Patterns:** Which calendar months consistently register peak price pressure across the primary staple basket?
-4. **Regional Inflation:** Which Ghanaian region has recorded the highest average food inflation rate during the recent shock period?
-5. **Seasonal Signal:** What does a given commodity typically do in the coming calendar month, and how consistent is that pattern?
-
----
-
-## Repository Structure
-
-```text
-marketpulse-ghana/
-├── .github/
-│   └── workflows/
-│       └── pipeline-validation.yml   # CI: validates DuckDB row counts and GBVI range
-├── pipeline/
-│   ├── 1_ingest_data.py              # Loads raw WFP CSV into DuckDB staging table
-│   ├── 2_transform_data.py           # Cleans data and normalises units to GHS/KG
-│   ├── 3_build_analytics_views.py    # Constructs fact views: monthly prices, spreads, GBVI
-│   ├── 5_build_seasonal_outlook.py   # Builds fact_seasonal_outlook: historical MoM stats
-│   └── requirements.txt             # Python dependencies: duckdb, pandas, scipy
-├── ui/
-│   ├── pages/
-│   │   ├── index.md                  # Executive Overview — GBVI, volatility ranking, seasonality
-│   │   ├── commodities.md            # Commodity Price Intelligence — per-commodity drill-down
-│   │   ├── forecasts.md              # Seasonal Price Outlook — historical seasonal signals
-│   │   └── market_spreads.md         # Supply Chain Price Spreads — farm-gate vs urban analysis
-│   ├── sources/
-│   │   └── agri_ghana/               # DuckDB source connection and SQL query definitions
-│   ├── theme.yaml                    # Dashboard colour palette and chart defaults
-│   └── evidence.config.yaml          # Evidence project configuration
-├── utils/
-│   ├── validate_sql.py               # Validates all SQL blocks in MD pages against DuckDB
-│   └── ...                           # Audit and diagnostic scripts
-├── agri_ghana.duckdb                 # Analytical warehouse (committed build artefact)
-└── README.md
-```
-
----
-
-## Local Setup
-
-### Prerequisites
-
-- Python 3.10 or higher
-- Node.js 18 or higher
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/primegideon/marketpulse-ghana.git
-cd marketpulse-ghana
-```
-
-### 2. Python Environment
-
-```bash
+```powershell
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-
-pip install -r pipeline/requirements.txt
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install duckdb numpy pandas matplotlib seaborn jupyter nbconvert ipykernel
+jupyter nbconvert --to notebook --execute notebooks/exploratory_data_analysis.ipynb --inplace
 ```
 
-### 3. Run the Data Pipeline
+The notebook opens the database in read-only mode and expects `agri_ghana.duckdb` in the project root. Close other processes that have the database open if DuckDB reports a file-lock error.
 
-Run the full pipeline with a single command from the repo root:
+## Current project files
 
-```bash
-python main.py
-```
-
-To skip Prophet ML training (faster refresh for data-only changes):
-
-```bash
-python main.py --skip-forecast
-```
-
-Each step logs its progress to the console and writes a permanent entry to the
-`pipeline_run_log` table in `agri_ghana.duckdb`. On completion, the database
-will contain all staging tables, analytical views, forecast outputs, and the
-seasonal outlook table. A summary table is printed at the end of each run.
-
-### 4. Validate SQL Queries
-
-Run the SQL validator to confirm all dashboard queries resolve against the database before deploying:
-
-```bash
-python utils/validate_sql.py
-```
-
-Expected output: `21/21 queries passed.`
-
-### 5. Launch the Dashboard
-
-```bash
-cd ui
-npm install
-npm run dev
-```
-
-The local development server starts at `http://localhost:3000`.
-
----
-
-## CI/CD and Quality Assurance
-
-### Pipeline Validation (GitHub Actions)
-
-A validation workflow runs automatically on every push or pull request to `main` that touches the `pipeline/` directory or the DuckDB file. It performs three checks:
-
-- **Row count validation:** Confirms all fact tables meet minimum row thresholds, guarding against empty or corrupt pipeline runs.
-- **Seasonal outlook check:** Confirms `fact_seasonal_outlook` contains entries for all 12 months for the core staple commodities.
-- **GBVI range check:** Confirms all GBVI scores are within the mathematically valid 0–100 range.
-
-### Data Quality Rules
-
-- **Unit standardisation:** All source records are normalised from 18 distinct local market units to a single GHS/KG standard during the transformation step.
-- **Non-negativity enforcement:** Prices below GHS 0.05/KG or above GHS 500/KG are excluded from analytical views as physically implausible.
-- **Price type segregation:** All consumer-facing KPIs and charts use retail prices only. Wholesale prices are retained in the database but filtered at query level.
-- **SQL validation:** The `utils/validate_sql.py` script validates every SQL block in every dashboard page against the live DuckDB file. Must pass before any deployment.
-
----
-
-## Data Source
-
-**UN World Food Programme — Ghana Food Prices**
-Published via the Humanitarian Data Exchange (HDX). Licensed under Creative Commons Attribution for International Development (CC BY-IGO).
-Coverage: January 2006 – July 2023. 38,917 price observations across 25 commodities and 10 administrative regions.
-URL: [https://data.humdata.org/dataset/wfp-food-prices-for-ghana](https://data.humdata.org/dataset/wfp-food-prices-for-ghana)
-
----
-
-## License
-
-This project is licensed under the MIT License.
+- `agri_ghana.duckdb` - local DuckDB database containing the raw WFP table
+- `general_ml_roadmap.html` - high-level project roadmap
+- `notebooks/exploratory_data_analysis.ipynb` - executed EDA, pending review and sign-off
+- `README.md` - project purpose, scope, status, and setup instructions

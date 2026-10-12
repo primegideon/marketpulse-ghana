@@ -1,4 +1,0 @@
-name: agri_ghana
-type: duckdb
-options:
-  filename: agri_ghana.duckdb
