@@ -1,0 +1,25 @@
+{
+  "features": [
+    "log_lag_1",
+    "log_lag_2",
+    "log_lag_3",
+    "log_lag_6",
+    "log_lag_12",
+    "log_roll_mean_3",
+    "log_roll_mean_6",
+    "log_roll_mean_12",
+    "roll_std_3",
+    "month_sin",
+    "month_cos",
+    "quarter",
+    "year",
+    "pct_change_1m",
+    "pct_change_12m",
+    "n_markets"
+  ],
+  "target": "log_target",
+  "target_raw": "price_ghs",
+  "test_months": 18,
+  "split_date": "2022-01-01",
+  "notes": "Target and price-level features are log1p transformed. Invert with np.expm1() to recover GHS/KG."
+}

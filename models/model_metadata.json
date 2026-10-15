@@ -1,0 +1,41 @@
+{
+  "algorithm": "XGBoostRegressor",
+  "xgboost_version": "3.4.1",
+  "n_estimators": 500,
+  "best_params": {
+    "max_depth": 4,
+    "learning_rate": 0.1,
+    "subsample": 0.7,
+    "min_child_weight": 3,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0
+  },
+  "features": [
+    "log_lag_1",
+    "log_lag_2",
+    "log_lag_3",
+    "log_lag_6",
+    "log_lag_12",
+    "log_roll_mean_3",
+    "log_roll_mean_6",
+    "log_roll_mean_12",
+    "roll_std_3",
+    "month_sin",
+    "month_cos",
+    "quarter",
+    "year",
+    "pct_change_1m",
+    "pct_change_12m",
+    "n_markets"
+  ],
+  "target": "log_target",
+  "cv_folds": 9,
+  "cv_min_train_months": 60,
+  "cv_step_months": 12,
+  "cv_horizon_months": 12,
+  "best_cv_rmse_log": 0.09947592922632549,
+  "default_cv_rmse_log": 0.10360453180266191,
+  "train_rmse_ghs": 0.021620926093122234,
+  "naive_baseline_rmse_ghs": 0.6301650682118491
+}

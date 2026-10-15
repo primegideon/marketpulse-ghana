@@ -225,6 +225,6 @@ __marimo__/
 # Evidence.dev build files
 .evidence/
 build/
+# Put local-only exclusions in `.git/info/exclude`.
+# Keep developer-specific paths out of this shared file.
 
-# Local planning and notes — not for version control
-mentor-sprint-plan.md
