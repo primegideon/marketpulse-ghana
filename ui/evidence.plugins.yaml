@@ -1,0 +1,8 @@
+components:
+  "@evidence-dev/core-components":
+    overrides: []
+    aliases: {}
+    provides: []
+datasources:
+  "@evidence-dev/duckdb":
+    overrides: []

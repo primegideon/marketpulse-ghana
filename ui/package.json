@@ -1,0 +1,30 @@
+{
+  "name": "marketpulse-ghana-ui",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "evidence dev",
+    "sources": "evidence sources",
+    "build:sdk": "npm --prefix node_modules/@evidence-dev/sdk run build",
+    "sync:sources": "node -e \"import('fs-extra').then(({default:f})=>{f.mkdirpSync('.evidence/template');f.copySync('./sources','.evidence/template/sources');console.log('Sources synced to .evidence/template/sources')})\"",
+    "build": "npm run build:sdk && npm run sync:sources && npm run sources && cross-env VITE_EVIDENCE_SPA=true evidence build",
+    "preview": "evidence preview"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "4.2.0",
+    "@evidence-dev/duckdb": "^2.0.0",
+    "@evidence-dev/evidence": "^35.0.0",
+    "@sveltejs/kit": "^2.5.4",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "@types/estree": "1.0.5",
+    "autoprefixer": "^10.6.1",
+    "git-remote-origin-url": "^4.0.0",
+    "postcss": "^8.5.28",
+    "postcss-load-config": "^4.0.2",
+    "svelte": "4.2.12",
+    "svelte-kit": "^1.2.0"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  },
+  "type": "module"
+}

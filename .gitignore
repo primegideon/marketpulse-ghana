@@ -230,3 +230,6 @@ build/
 *roadmap*.html
 archive/ml/*roadmap*.html
 
+# Raw data downloads
+data/raw/
+
