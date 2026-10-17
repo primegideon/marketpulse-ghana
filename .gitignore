@@ -225,6 +225,8 @@ __marimo__/
 # Evidence.dev build files
 .evidence/
 build/
-# Put local-only exclusions in `.git/info/exclude`.
-# Keep developer-specific paths out of this shared file.
+
+# Internal notes and learning artifacts
+*roadmap*.html
+archive/ml/*roadmap*.html
 
