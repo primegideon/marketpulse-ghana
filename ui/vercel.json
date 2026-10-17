@@ -6,7 +6,10 @@
   "routes": [
     {
       "src": "/data/(.*)",
-      "dest": "/data/$1"
+      "dest": "/data/$1",
+      "headers": {
+        "cache-control": "public, max-age=0, must-revalidate"
+      }
     },
     {
       "handle": "filesystem"

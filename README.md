@@ -45,6 +45,7 @@ The platform implements an automated, local-first analytics engineering pipeline
 2. **Analytical Mart Modeling (`scripts/build_marts.py`)**: Generates staging views, dimensional models, and analytical marts with normalized per-kilogram pricing, temporal lags, spatial spread calculations, and margin quality filters in under one second.
 3. **Exploration & Quality Assurance**: In-depth profiling, data auditing, anomaly detection, and seasonality analysis are maintained in [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb).
 4. **Presentation Layer (`ui/`)**: A multi-page [Evidence.dev](https://evidence.dev/) web application compiled statically into client-side Arrow/Parquet bundles and deployed globally on Vercel.
+5. **Automated Continuous Ingestion (`.github/workflows/data_pipeline_sync.yml`)**: A monthly GitHub Actions workflow that detects new HDX data releases, recalculates analytical marts, and opens an automated Pull Request with a Vercel preview deployment for review before merging to `main`.
 
 ---
 
@@ -65,9 +66,15 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 
 ```
 marketpulse-ghana/
+├── .github/
+│   └── workflows/
+│       └── data_pipeline_sync.yml       # Monthly automated HDX ingestion & pull request workflow
 ├── agri_ghana.duckdb                    # Embedded DuckDB analytical database
 ├── data/
 │   └── raw/                             # Downloaded source CSVs from HDX
+├── docs/
+│   ├── PROJECT_PLAN.md                  # Comprehensive analytics engineering roadmap
+│   └── images/                          # Visual dashboard artifacts and platform screenshots
 ├── scripts/
 │   ├── ingest_hdx.py                    # Automated HDX downloader & DuckDB ingestor
 │   └── build_marts.py                   # Dimensional models and analytical marts builder
@@ -81,7 +88,8 @@ marketpulse-ghana/
 │   │   ├── margins.md                   # Wholesale vs. Retail Trade Markups
 │   │   └── governance.md                # Pipeline Observability & Audit Log
 │   ├── sources/agri_ghana/              # DuckDB source queries and connection configs
-│   └── package.json                     # Node.js dependencies and build scripts
+│   ├── package.json                     # Node.js dependencies and build scripts
+│   └── vercel.json                      # Vercel deployment and cache revalidation configuration
 ├── archive/
 │   └── ml/                              # Consolidated ML forecasting pipeline (Phases 2 & 3)
 │       ├── data/                        # Engineered feature matrices and train/test splits
@@ -91,6 +99,22 @@ marketpulse-ghana/
 ├── .gitignore                           # Repository exclusions
 └── README.md                            # Main project documentation
 ```
+
+---
+
+## Platform Gallery
+
+| National Food Price Trends | Commercial Packaging Units |
+| :---: | :---: |
+| ![National Median Prices](docs/images/national_monthly_median_prices_per_kg.png) | ![Commercial Packaging Units](docs/images/commercial_packaging_unit_wholesale_prices.png) |
+
+| Food Price Inflation Gainers | Standardized Commodity Comparison |
+| :---: | :---: |
+| ![Inflation Gainers](docs/images/top_food_price_inflation_yoy.png) | ![Commodity Comparison](docs/images/standardized_commodity_comparison_per_kg.png) |
+
+| Regional Market Price Levels | Maize Benchmark Spatial Spread |
+| :---: | :---: |
+| ![Regional Price Levels](docs/images/regional_price_level_per_kg.png) | ![Maize Spatial Spread](docs/images/maize_price_spread_regional_benchmark.png) |
 
 ---
 
