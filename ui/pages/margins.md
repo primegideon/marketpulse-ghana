@@ -45,7 +45,8 @@ SELECT
     ROUND(retail_markup_pct / 100.0, 4) AS retail_markup_pct
 FROM agri_ghana.mart_wholesale_retail_margins
 WHERE date = (SELECT MAX(date) FROM agri_ghana.mart_wholesale_retail_margins)
-ORDER BY retail_markup_pct DESC
+  AND retail_markup_pct BETWEEN -30 AND 200
+ORDER BY commodity, market
 ```
 
 ## National Maize Price Breakdown: Wholesale vs. Retail (GHS / KG)
@@ -84,6 +85,8 @@ ORDER BY retail_markup_pct DESC
   <Tab label="Latest Market Margins">
 
 ### Current Market-Level Spread Observations
+
+> Displaying verified market-level paired observations. Source unit-reporting discrepancies have been filtered out.
 
 <DataTable data={recent_margins_table} search=true pagination=true>
   <Column id="year_month" title="Period" />

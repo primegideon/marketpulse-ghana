@@ -129,9 +129,7 @@ LIMIT 15
 <Tabs>
   <Tab label="Standardized Trends (Per KG)">
 
-## Standardized Wholesale Price Trajectories (GHS / KG)
-
-> Standardized to price per kilogram across 44 Ghanaian wholesale markets to ensure accurate, apples-to-apples price comparison across staples.
+> **Standardized Benchmark**: Price per kilogram across 44 Ghanaian wholesale markets to ensure accurate, apples-to-apples price comparison across staples.
 
 <LineChart
   data={staple_trends}
@@ -147,9 +145,7 @@ LIMIT 15
 
   <Tab label="Commercial Unit Prices (Bags & Sacks)">
 
-## Commercial Bulk Packaging Prices (Wholesale Sacks & Crates)
-
-> Calibrated to commercial trading units: Maize (100 KG sack), Cassava (91 KG sack), Imported Rice (50 KG bag), Yam (250 KG crate / 100 tubers). Prices reflect full bulk containers in Ghana Cedis.
+> **Bulk Trading Units**: Maize (100 KG sack), Cassava (91 KG sack), Imported Rice (50 KG bag), Yam (250 KG crate / 100 tubers). Prices reflect full bulk commercial containers in Ghana Cedis.
 
 <LineChart
   data={staple_trends}
