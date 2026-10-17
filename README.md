@@ -1,40 +1,50 @@
 # MarketPulse Ghana
 
+[![Live Dashboard](https://img.shields.io/badge/Production-Live%20on%20Vercel-success?logo=vercel)](https://marketpulse-ghana.vercel.app)
 [![Data: WFP HDX](https://img.shields.io/badge/Data-WFP_HDX-blue.svg)](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320)
 [![Database: DuckDB](https://img.shields.io/badge/Database-DuckDB-FFF000?logo=duckdb&logoColor=black)](https://duckdb.org/)
 [![UI: Evidence.dev](https://img.shields.io/badge/UI-Evidence.dev-FF6B6B)](https://evidence.dev/)
 [![Deployment: Vercel](https://img.shields.io/badge/Deployment-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
 [![Python: 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org/)
 
-MarketPulse Ghana is an analytics engineering project that transforms over 17 years of historical food price records in Ghana into high-fidelity market intelligence. Built for small and medium-sized enterprises (SMEs), agricultural traders, food processors, and policy analysts, the platform illuminates price volatility, seasonal trends, regional spreads, and market dynamics across key food staples.
+MarketPulse Ghana is an analytics engineering platform that transforms over 17 years of historical and contemporary food commodity price records across Ghana into actionable market intelligence. Built for agricultural aggregators, food processors, retail distributors, and economic analysts, the platform illuminates price inflation trajectories, standardized per-kilogram valuations, spatial market spreads, and wholesale-to-retail trade margins.
+
+* **Live Web Application**: [marketpulse-ghana.vercel.app](https://marketpulse-ghana.vercel.app)
 
 ---
 
-## Architecture
+## Modern Data Stack Architecture
 
-The project implements a modern, local-first analytics engineering pipeline designed for fast analytical query execution and web-based reporting:
+The platform implements an automated, local-first analytics engineering pipeline:
 
 ```
 ┌─────────────────────────────────┐
-│  WFP Ghana Food Prices (HDX)    │  Raw source data (CSV)
+│   UN WFP Ghana Datasets (HDX)   │  Raw Food Prices & Market Reference CSVs
 └────────────────┬────────────────┘
                  │
-                 ▼ Ingestion & SQL Transformations
+                 ▼ scripts/ingest_hdx.py
 ┌─────────────────────────────────┐
-│     DuckDB Analytical Engine    │  Embedded analytical data store
-│       (agri_ghana.duckdb)       │  • raw_wfp_prices (37,765 rows)
-└────────────────┬────────────────┘
+│     DuckDB Ingestion Layer      │  raw_wfp_prices (39,038 records)
+│      (agri_ghana.duckdb)        │  raw_wfp_markets (93 market reference rows)
+└────────────────┬────────────────┘  meta_pipeline_runs (Operational audit trail)
                  │
-                 ▼ SQL Queries & Reactive Markdown
+                 ▼ scripts/build_marts.py
 ┌─────────────────────────────────┐
-│       Evidence.dev Web UI       │  Interactive reports, charts, and metrics
-│       (Hosted on Vercel)        │  Fast, serverless static analytical app
+│     DuckDB Analytical Marts     │  • dim_commodities & dim_markets
+│      (SQL Transformation)       │  • mart_commodity_monthly (YoY / MoM / per-KG)
+└────────────────┬────────────────┘  • mart_regional_spreads & mart_wholesale_retail_margins
+                 │
+                 ▼ ui/ (Evidence.dev)
+┌─────────────────────────────────┐
+│      Evidence.dev Dashboard     │  Static serverless analytical web app
+│        (Hosted on Vercel)       │  Sub-second query execution, zero cloud database costs
 └─────────────────────────────────┘
 ```
 
-1. **Ingestion & Storage**: Granular market records collected by the United Nations World Food Programme (WFP) are loaded directly into an embedded [DuckDB](https://duckdb.org/) database (`agri_ghana.duckdb`), eliminating heavyweight database overhead while providing columnar analytical speed.
-2. **Exploration & Quality Assurance**: In-depth profiling, data auditing, anomaly detection, and seasonality analysis are maintained in [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb).
-3. **Semantic Reporting & Visualization**: Dashboards and business intelligence products are authored with [Evidence.dev](https://evidence.dev/) markdown-based reports, rendered statically and deployed via Vercel.
+1. **Automated Ingestion (`scripts/ingest_hdx.py`)**: Retrieves the latest food prices and market reference CSVs directly from the Humanitarian Data Exchange (HDX), loads them into [`agri_ghana.duckdb`](agri_ghana.duckdb), preserves previous snapshots, and logs operational execution metrics into `meta_pipeline_runs`.
+2. **Analytical Mart Modeling (`scripts/build_marts.py`)**: Generates staging views, dimensional models, and analytical marts with normalized per-kilogram pricing, temporal lags, spatial spread calculations, and margin quality filters in under one second.
+3. **Exploration & Quality Assurance**: In-depth profiling, data auditing, anomaly detection, and seasonality analysis are maintained in [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb).
+4. **Presentation Layer (`ui/`)**: A multi-page [Evidence.dev](https://evidence.dev/) web application compiled statically into client-side Arrow/Parquet bundles and deployed globally on Vercel.
 
 ---
 
@@ -42,14 +52,12 @@ The project implements a modern, local-first analytics engineering pipeline desi
 
 The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320):
 
-* **Local Table**: `raw_wfp_prices` in `agri_ghana.duckdb`
-* **Total Observations**: 37,765 records
-* **Temporal Coverage**: January 2006 – July 2023 (210 consecutive months)
-* **Geographical Coverage**: 44 commercial and rural markets spanning all major regions in Ghana
-* **Commodity Scope**: 26 primary staple crops and food commodities (including Maize, Rice, Cassava, Yam, Plantains, Cowpeas, and Tomatoes)
-* **Price Classifications**: Wholesale and Retail price levels denominated in Ghanaian Cedis (GHS) and USD equivalents
-
-> **Note on Interpretation**: Prices reflect observed market transactions and serve as macroeconomic market context. They do not incorporate individual firm transport logistics, inventory carrying costs, or retail margins.
+* **Database Engine**: [DuckDB](https://duckdb.org/) (`agri_ghana.duckdb`)
+* **Total Ingested Observations**: 39,038 food price records across 93 market nodes
+* **Temporal Coverage**: January 2006 – July 2023 (211 consecutive months)
+* **Geographical Coverage**: 44 monitored commercial and rural markets spanning all 10 administrative regions
+* **Commodity Scope**: 26 primary staple crops and food commodities (Cereals, Tubers, Pulses, Vegetables, Animal Proteins)
+* **Price Classifications**: Wholesale commercial bulk containers and Retail consumer checkout levels denominated in Ghanaian Cedis (GHS) and USD equivalents
 
 ---
 
@@ -57,28 +65,32 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 
 ```
 marketpulse-ghana/
-├── agri_ghana.duckdb       # DuckDB analytical database (table: raw_wfp_prices)
+├── agri_ghana.duckdb                    # Embedded DuckDB analytical database
+├── data/
+│   └── raw/                             # Downloaded source CSVs from HDX
+├── scripts/
+│   ├── ingest_hdx.py                    # Automated HDX downloader & DuckDB ingestor
+│   └── build_marts.py                   # Dimensional models and analytical marts builder
 ├── notebooks/
 │   └── exploratory_data_analysis.ipynb  # Core data profiling, audit, and market analysis
+├── ui/                                  # Evidence.dev analytical web application
+│   ├── pages/
+│   │   ├── index.md                     # National Food Price Pulse & KPIs
+│   │   ├── commodities.md               # Commodity Explorer & Normalized Per-KG Affordability
+│   │   ├── markets.md                   # Market Geography & Regional Disparities
+│   │   ├── margins.md                   # Wholesale vs. Retail Trade Markups
+│   │   └── governance.md                # Pipeline Observability & Audit Log
+│   ├── sources/agri_ghana/              # DuckDB source queries and connection configs
+│   └── package.json                     # Node.js dependencies and build scripts
 ├── archive/
-│   └── ml/                 # Consolidated Machine Learning pipeline (Phases 2 & 3)
-│       ├── data/           # Engineered feature matrices, train/test splits, predictions
-│       ├── models/         # Serialized XGBoost model binary and metadata JSON
-│       ├── notebooks/      # Preprocessing, feature engineering, and CV training notebooks
-│       └── README.md       # ML archive overview and reactivation runbook
-├── .gitignore              # Repository exclusions (build files, credentials, local roadmaps)
-└── README.md               # Main project documentation
+│   └── ml/                              # Consolidated ML forecasting pipeline (Phases 2 & 3)
+│       ├── data/                        # Engineered feature matrices and train/test splits
+│       ├── models/                      # Serialized XGBoost model binary
+│       ├── notebooks/                   # Preprocessing, feature engineering, and CV training
+│       └── README.md                    # ML archive runbook
+├── .gitignore                           # Repository exclusions
+└── README.md                            # Main project documentation
 ```
-
----
-
-## Exploratory Data Analysis & Quality Auditing
-
-The active analysis notebook [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb) establishes data health across the entire historical snapshot:
-
-* **Integrity Audits**: Verified zero unhandled null values, zero duplicate observation keys (`date, market_id, commodity_id, unit, pricetype`), and validated geographic coordinate bounds within Ghana.
-* **Price Distribution & Seasonality**: Identified cyclical harvest patterns and documented structural price breaks coinciding with global food commodity inflation and local currency devaluations.
-* **Exchange Rate Verification**: Flagged implied historical exchange rate variations between local GHS and recorded USD prices for analytical awareness.
 
 ---
 
@@ -87,48 +99,54 @@ The active analysis notebook [`notebooks/exploratory_data_analysis.ipynb`](noteb
 ### Prerequisites
 
 * Python 3.10+ (Python 3.12 recommended)
-* Node.js 18+ (for Evidence.dev UI development)
+* Node.js 18+ and npm (for Evidence.dev web UI)
 
-### Setup Instructions
+### 1. Ingest Data & Build Marts
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/primegideon/marketpulse-ghana.git
-   cd marketpulse-ghana
-   ```
+Clone the repository and set up the Python environment:
 
-2. **Configure Python Environment**:
-   ```powershell
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   pip install --upgrade pip
-   pip install duckdb pandas numpy matplotlib seaborn jupyter nbconvert ipykernel
-   ```
+```powershell
+git clone https://github.com/primegideon/marketpulse-ghana.git
+cd marketpulse-ghana
 
-3. **Query DuckDB Directly**:
-   You can query the DuckDB store using Python or the DuckDB CLI:
-   ```python
-   import duckdb
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install duckdb pandas numpy matplotlib seaborn jupyter
+```
 
-   con = duckdb.connect("agri_ghana.duckdb", read_only=True)
-   print(con.execute("SELECT commodity, pricetype, COUNT(*) FROM raw_wfp_prices GROUP BY ALL LIMIT 10").df())
-   con.close()
-   ```
+Execute the end-to-end ingestion and transformation pipeline:
 
-4. **Run the Analysis Notebook**:
-   ```powershell
-   jupyter lab notebooks/exploratory_data_analysis.ipynb
-   ```
+```powershell
+# 1. Download latest data from HDX and ingest to DuckDB
+python scripts/ingest_hdx.py
+
+# 2. Build dimensional tables and analytical marts
+python scripts/build_marts.py
+```
+
+### 2. Run the Evidence Web Dashboard Locally
+
+Navigate to the `ui/` directory, synchronize sources, and start the development server:
+
+```powershell
+cd ui
+npm install
+npm run sync:sources
+npm run sources
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to explore the dashboard.
 
 ---
 
 ## Machine Learning Archive
 
-Earlier predictive modeling experiments targeting 1-month-ahead wholesale maize price forecasting with XGBoost and walk-forward cross-validation have been consolidated in [`archive/ml/`](archive/ml/). When analytical reporting is established, predictive models can be reintroduced as a downstream forecast mart. Refer to [`archive/ml/README.md`](archive/ml/README.md) for complete details.
+Earlier predictive modeling experiments targeting 1-month-ahead wholesale maize price forecasting with XGBoost and walk-forward cross-validation have been preserved in [`archive/ml/`](archive/ml/). When analytical reporting is established, predictive models can be reintroduced as a downstream forecast mart. Refer to [`archive/ml/README.md`](archive/ml/README.md) for complete details.
 
 ---
 
 ## License & Acknowledgements
 
-* Data courtesy of the **United Nations World Food Programme (WFP)** via the **Humanitarian Data Exchange (HDX)**.
-* Project developed as part of the **AmaliTech Data Analytics / Data Engineering Capstone**.
+* Data published by the **United Nations World Food Programme (WFP)** via the **Humanitarian Data Exchange (HDX)** in partnership with the **Ministry of Food and Agriculture (MoFA, Ghana)** and **FAO GIEWS**.
+* Developed as part of the **AmaliTech Data Analytics & Engineering Capstone**.
