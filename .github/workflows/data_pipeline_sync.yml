@@ -45,7 +45,7 @@ jobs:
         id: git_check
         run: |
           git status --porcelain
-          if [ -n "$(git status --porcelain agri_ghana.duckdb ui/sources/agri_ghana/agri_ghana.duckdb)" ]; then
+          if [ -n "$(git status --porcelain ui/sources/agri_ghana/agri_ghana.duckdb)" ]; then
             echo "changes_detected=true" >> $GITHUB_OUTPUT
             echo "Changes detected in DuckDB datasets."
           else
@@ -63,7 +63,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           git checkout -b "$BRANCH_NAME"
-          git add agri_ghana.duckdb ui/sources/agri_ghana/agri_ghana.duckdb data/raw/
+          git add -f ui/sources/agri_ghana/agri_ghana.duckdb
           git commit -m "data(sync): automated WFP HDX data ingestion $(date +'%Y-%m-%d')
 
           - Downloaded latest food price records and market directory from HDX.
