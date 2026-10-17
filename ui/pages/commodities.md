@@ -53,10 +53,10 @@ SELECT
     category,
     raw_unit,
     price_type,
-    median_price_ghs,
     median_price_ghs_per_kg,
-    mom_pct_change,
-    yoy_pct_change,
+    median_price_ghs,
+    ROUND(mom_pct_change / 100.0, 4) AS mom_pct,
+    ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
     markets_reporting
 FROM agri_ghana.mart_commodity_monthly
 WHERE date = (SELECT MAX(date) FROM agri_ghana.mart_commodity_monthly)
@@ -70,8 +70,9 @@ ORDER BY category, commodity, price_type
   x=date
   y=median_price_ghs_per_kg
   series=commodity
+  yFmt="#,##0.00"
   title="Standardized Commodity Comparison (GHS / KG)"
-  subtitle="Normalized to per-kilogram price across wholesale packaging units"
+  subtitle="Normalized to per-kilogram price across wholesale packaging units (0 – 15 GHS / KG)"
 />
 
 ---
@@ -86,6 +87,7 @@ ORDER BY category, commodity, price_type
   x=date
   y=median_price_ghs_per_kg
   series=commodity
+  yFmt="#,##0.00"
   title="Cereal Wholesale Price per KG (2006 – 2023)"
   subtitle="Maize vs. Imported Rice vs. Indigenous Grains"
 />
@@ -101,10 +103,10 @@ ORDER BY category, commodity, price_type
   <Column id="category" title="Food Category" />
   <Column id="raw_unit" title="Unit" />
   <Column id="price_type" title="Type" />
-  <Column id="median_price_ghs" title="Median (GHS)" fmt="#,##0.00" />
   <Column id="median_price_ghs_per_kg" title="Per KG (GHS)" fmt="#,##0.00" />
-  <Column id="mom_pct_change" title="MoM (%)" fmt="+0.0;-0.0;0.0" />
-  <Column id="yoy_pct_change" title="YoY (%)" fmt="+0.0;-0.0;0.0" />
+  <Column id="median_price_ghs" title="Commercial Unit (GHS)" fmt="#,##0.00" />
+  <Column id="mom_pct" title="MoM" fmt="+0.0%;-0.0%;0.0%" />
+  <Column id="yoy_pct" title="YoY" fmt="+0.0%;-0.0%;0.0%" />
   <Column id="markets_reporting" title="Markets" />
 </DataTable>
 

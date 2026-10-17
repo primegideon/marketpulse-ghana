@@ -72,7 +72,7 @@ WITH latest_month AS (
 )
 SELECT
     commodity || ' [' || raw_unit || ' - ' || price_type || ']' AS series_label,
-    yoy_pct_change,
+    ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
     median_price_ghs
 FROM agri_ghana.mart_commodity_monthly
 WHERE date = (SELECT max_date FROM latest_month)
@@ -87,9 +87,10 @@ SELECT
     commodity,
     price_type,
     raw_unit,
+    median_price_ghs_per_kg,
     median_price_ghs,
-    mom_pct_change,
-    yoy_pct_change,
+    ROUND(mom_pct_change / 100.0, 4) AS mom_pct,
+    ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
     markets_reporting
 FROM agri_ghana.mart_commodity_monthly
 WHERE commodity IN ('Maize', 'Rice (imported)', 'Cassava', 'Yam', 'Tomatoes')
@@ -126,17 +127,38 @@ LIMIT 15
 ---
 
 <Tabs>
-  <Tab label="Staple Price Trajectories">
+  <Tab label="Standardized Trends (Per KG)">
 
-## Primary Staple Trends (Wholesale, GHS)
+## Standardized Wholesale Price Trajectories (GHS / KG)
+
+> Standardized to price per kilogram across 44 Ghanaian wholesale markets to ensure accurate, apples-to-apples price comparison across staples.
+
+<LineChart
+  data={staple_trends}
+  x=date
+  y=median_price_ghs_per_kg
+  series=commodity
+  yFmt="#,##0.00"
+  title="National Monthly Median Wholesale Prices (GHS per KG)"
+  subtitle="Normalized to per-kilogram benchmark across wholesale markets (2006 – 2023)"
+/>
+
+  </Tab>
+
+  <Tab label="Commercial Unit Prices (Bags & Sacks)">
+
+## Commercial Bulk Packaging Prices (Wholesale Sacks & Crates)
+
+> Calibrated to commercial trading units: Maize (100 KG sack), Cassava (91 KG sack), Imported Rice (50 KG bag), Yam (250 KG crate / 100 tubers). Prices reflect full bulk containers in Ghana Cedis.
 
 <LineChart
   data={staple_trends}
   x=date
   y=median_price_ghs
   series=commodity
-  title="National Monthly Median Wholesale Prices"
-  subtitle="Observed across 44 Ghanaian wholesale markets (2006 – 2023)"
+  yFmt="#,##0"
+  title="Commercial Packaging Unit Wholesale Prices (GHS / Unit)"
+  subtitle="Observed bulk sack and crate wholesale transaction values across Ghanaian regional hubs"
 />
 
   </Tab>
@@ -148,7 +170,8 @@ LIMIT 15
 <BarChart
   data={yoy_inflation_ranking}
   x=series_label
-  y=yoy_pct_change
+  y=yoy_pct
+  yFmt="pct"
   swapXY=true
   title="Top Food Price Inflation Gainers (% Year-over-Year)"
   subtitle="Relative price change compared to the exact same calendar month in the previous year"
@@ -166,9 +189,10 @@ LIMIT 15
   <Column id="commodity" title="Commodity" />
   <Column id="price_type" title="Type" />
   <Column id="raw_unit" title="Unit" />
-  <Column id="median_price_ghs" title="Median (GHS)" fmt="#,##0.00" />
-  <Column id="mom_pct_change" title="MoM (%)" fmt="+0.0;-0.0;0.0" />
-  <Column id="yoy_pct_change" title="YoY (%)" fmt="+0.0;-0.0;0.0" />
+  <Column id="median_price_ghs_per_kg" title="Per KG (GHS)" fmt="#,##0.00" />
+  <Column id="median_price_ghs" title="Packaging Unit (GHS)" fmt="#,##0.00" />
+  <Column id="mom_pct" title="MoM" fmt="+0.0%;-0.0%;0.0%" />
+  <Column id="yoy_pct" title="YoY" fmt="+0.0%;-0.0%;0.0%" />
   <Column id="markets_reporting" title="Markets" />
 </DataTable>
 

@@ -390,6 +390,8 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
         FROM paired_observations
         WHERE wholesale_price_per_kg IS NOT NULL
           AND retail_price_per_kg IS NOT NULL
+          AND wholesale_price_per_kg >= 0.20
+          AND retail_price_per_kg >= 0.20
     """)
 
     # Mart: Pipeline observability and data freshness summary

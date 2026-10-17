@@ -35,7 +35,10 @@ SELECT
     market_median_ghs,
     national_median_ghs,
     spread_to_national_ghs,
-    spread_to_national_pct
+    ROUND(spread_to_national_pct / 100.0, 4) AS spread_to_national_pct,
+    ROUND(market_median_ghs / 100.0, 2) AS market_median_ghs_per_kg,
+    ROUND(national_median_ghs / 100.0, 2) AS national_median_ghs_per_kg,
+    ROUND(spread_to_national_ghs / 100.0, 2) AS spread_to_national_per_kg
 FROM agri_ghana.mart_regional_spreads
 WHERE date = (SELECT max_date FROM latest_period)
   AND commodity = 'Maize'
@@ -77,6 +80,7 @@ ORDER BY total_observations DESC
   data={maize_regional_spreads}
   x=market
   y=spread_to_national_pct
+  yFmt="pct"
   swapXY=true
   title="Maize Price Spread (% Above or Below National Benchmark)"
   subtitle="Markets with positive spreads indicate consumer import premiums; negative spreads indicate producing surplus hubs"
@@ -94,7 +98,8 @@ ORDER BY total_observations DESC
   data={regional_price_comparison}
   x=region
   y=regional_avg_price_per_kg
-  title="Regional Price Level per Kilogram"
+  yFmt="#,##0.00"
+  title="Regional Price Level per Kilogram (GHS / KG)"
   subtitle="Cost variations driven by transport costs, regional rainfall, and localized supply conditions"
   labels=true
 />

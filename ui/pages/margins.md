@@ -11,12 +11,13 @@ title: Trade Margins
 ```sql margin_overview
 SELECT
     commodity,
-    ROUND(AVG(margin_per_kg_ghs), 2) AS avg_margin_per_kg,
-    ROUND(AVG(retail_markup_pct), 1) AS avg_retail_markup_pct,
+    ROUND(MEDIAN(margin_per_kg_ghs), 2) AS median_margin_per_kg,
+    ROUND(MEDIAN(retail_markup_pct) / 100.0, 4) AS median_retail_markup_pct,
     COUNT(*) AS paired_observations
 FROM agri_ghana.mart_wholesale_retail_margins
+WHERE retail_markup_pct BETWEEN -30 AND 200
 GROUP BY commodity
-ORDER BY avg_retail_markup_pct DESC
+ORDER BY median_retail_markup_pct DESC
 ```
 
 ```sql margin_trend_maize
@@ -41,7 +42,7 @@ SELECT
     wholesale_price_per_kg,
     retail_price_per_kg,
     margin_per_kg_ghs,
-    retail_markup_pct
+    ROUND(retail_markup_pct / 100.0, 4) AS retail_markup_pct
 FROM agri_ghana.mart_wholesale_retail_margins
 WHERE date = (SELECT MAX(date) FROM agri_ghana.mart_wholesale_retail_margins)
 ORDER BY retail_markup_pct DESC
@@ -53,24 +54,28 @@ ORDER BY retail_markup_pct DESC
   data={margin_trend_maize}
   x=date
   y={["avg_wholesale_per_kg", "avg_retail_per_kg"]}
+  yFmt="#,##0.00"
   title="Wholesale vs. Retail Price per KG (Maize)"
-  subtitle="The vertical gap represents the intermediary trade and distribution margin"
+  subtitle="The vertical spread represents the intermediary commercial trade and transport markup"
 />
 
 ---
 
 <Tabs>
-  <Tab label="Average Markup by Crop">
+  <Tab label="Representative Markup by Crop">
 
-### Retail Markup Percentage Across Commodities
+### Median Retail Markup Across Commodities
+
+> Calculated using median markup across paired market-level observations, excluding reporting anomalies to provide reliable commercial margins.
 
 <BarChart
   data={margin_overview}
   x=commodity
-  y=avg_retail_markup_pct
+  y=median_retail_markup_pct
+  yFmt="pct"
   swapXY=true
-  title="Average Retail Markup (%) Above Wholesale Price"
-  subtitle="Higher percentages reflect higher spoilage risks, handling fees, or retailer pricing power"
+  title="Median Retail Markup (%) Above Wholesale Price"
+  subtitle="Standard trade spread between wholesale acquisition and retail checkout"
   labels=true
 />
 
@@ -88,7 +93,7 @@ ORDER BY retail_markup_pct DESC
   <Column id="wholesale_price_per_kg" title="Wholesale / KG (GHS)" fmt="#,##0.00" />
   <Column id="retail_price_per_kg" title="Retail / KG (GHS)" fmt="#,##0.00" />
   <Column id="margin_per_kg_ghs" title="Margin / KG (GHS)" fmt="#,##0.00" />
-  <Column id="retail_markup_pct" title="Markup (%)" fmt="+0.0;-0.0;0.0" />
+  <Column id="retail_markup_pct" title="Markup" fmt="+0.0%;-0.0%;0.0%" />
 </DataTable>
 
   </Tab>
