@@ -1,11 +1,11 @@
 # MarketPulse Ghana
 
-[![Live Dashboard](https://img.shields.io/badge/Production-Live%20on%20Vercel-success?logo=vercel)](https://marketpulse-ghana.vercel.app)
-[![Data: WFP HDX](https://img.shields.io/badge/Data-WFP_HDX-blue.svg)](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320)
-[![Database: DuckDB](https://img.shields.io/badge/Database-DuckDB-FFF000?logo=duckdb&logoColor=black)](https://duckdb.org/)
-[![UI: Evidence.dev](https://img.shields.io/badge/UI-Evidence.dev-FF6B6B)](https://evidence.dev/)
-[![Deployment: Vercel](https://img.shields.io/badge/Deployment-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
-[![Python: 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org/)
+[![Production](https://img.shields.io/badge/Production-Live%20on%20Vercel-000000?style=flat-square&logo=vercel&logoColor=white)](https://marketpulse-ghana.vercel.app)
+[![Pipeline Sync](https://img.shields.io/badge/Pipeline%20Sync-Automated%20CI%2FCD-238636?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/primegideon/marketpulse-ghana/actions/workflows/data_pipeline_sync.yml)
+[![Data HDX](https://img.shields.io/badge/Data-WFP%20HDX-0072BC?style=flat-square&logo=unhcr&logoColor=white)](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320)
+[![Database DuckDB](https://img.shields.io/badge/Database-DuckDB-FFF000?style=flat-square&logo=duckdb&logoColor=black)](https://duckdb.org/)
+[![UI Evidence.dev](https://img.shields.io/badge/UI-Evidence.dev-FF4F64?style=flat-square&logo=framework7&logoColor=white)](https://evidence.dev/)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org/)
 
 MarketPulse Ghana is an analytics engineering platform that transforms over 17 years of historical and contemporary food commodity price records across Ghana into actionable market intelligence. Built for agricultural aggregators, food processors, retail distributors, and economic analysts, the platform illuminates price inflation trajectories, standardized per-kilogram valuations, spatial market spreads, and wholesale-to-retail trade margins.
 
@@ -99,22 +99,6 @@ marketpulse-ghana/
 ├── .gitignore                           # Repository exclusions
 └── README.md                            # Main project documentation
 ```
-
----
-
-## Platform Gallery
-
-| National Food Price Trends | Commercial Packaging Units |
-| :---: | :---: |
-| ![National Median Prices](docs/images/national_monthly_median_prices_per_kg.png) | ![Commercial Packaging Units](docs/images/commercial_packaging_unit_wholesale_prices.png) |
-
-| Food Price Inflation Gainers | Standardized Commodity Comparison |
-| :---: | :---: |
-| ![Inflation Gainers](docs/images/top_food_price_inflation_yoy.png) | ![Commodity Comparison](docs/images/standardized_commodity_comparison_per_kg.png) |
-
-| Regional Market Price Levels | Maize Benchmark Spatial Spread |
-| :---: | :---: |
-| ![Regional Price Levels](docs/images/regional_price_level_per_kg.png) | ![Maize Spatial Spread](docs/images/maize_price_spread_regional_benchmark.png) |
 
 ---
 
