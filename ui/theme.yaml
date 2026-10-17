@@ -1,0 +1,51 @@
+colors:
+  base:
+    light: "#f8f9fa"
+    dark: "#0d0f12"
+  card:
+    light: "#ffffff"
+    dark: "#141619"
+  cardLayoutBackground:
+    light: "#f0f2f5"
+    dark: "#1a1d22"
+  positive:
+    light: "#15803d"
+    dark: "#22c55e"
+  negative:
+    light: "#b91c1c"
+    dark: "#f87171"
+
+colorPalettes:
+  default:
+    light: ["#1e3a5f", "#2563a8", "#4a90c4", "#7fb3d3", "#c5dce8", "#d97706", "#b45309", "#92400e", "#065f46", "#0f766e"]
+    dark:  ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe", "#fbbf24", "#f59e0b", "#d97706", "#34d399", "#2dd4bf"]
+
+colorScales:
+  default:
+    light: ["#dbeafe", "#1e3a5f"]
+    dark:  ["#1e3a5f", "#93c5fd"]
+
+fonts:
+  heading: sans-serif
+  body: sans-serif
+
+baseFontSize: "15px"
+
+radius: 0.375
+
+depth: subtle
+
+density: default
+
+chart:
+  gridlines: true
+  baselines: true
+  smooth: false
+  barRadius: 3
+  areaGradient: false
+  animateIntro: true
+  animateUpdates: true
+
+table:
+  rowLines: true
+  rowShading: true

@@ -5,6 +5,14 @@
         "*.tsv": "duckdb.dataFileViewer",
         "*.xlsx": "duckdb.dataFileViewer"
     },
-    "duckdb.databases": [],
+    "duckdb.databases": [
+        {
+            "alias": "agri_ghana",
+            "type": "file",
+            "path": "${workspaceFolder}/agri_ghana.duckdb",
+            "readOnly": true,
+            "attached": true
+        }
+    ],
     "duckdb.defaultDatabase": "agri_ghana"
 }
