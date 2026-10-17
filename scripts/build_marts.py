@@ -184,7 +184,7 @@ def build_dimension_layer(con: duckdb.DuckDBPyConnection) -> None:
         LEFT JOIN market_stats s ON m.market_id = s.market_id
     """)
 
-    # Commodities dimension with categories and unit counts
+    # Commodities dimension with categories, wholesale packaging, and retail units
     con.execute("""
         CREATE OR REPLACE VIEW dim_commodities AS
         SELECT
@@ -192,6 +192,8 @@ def build_dimension_layer(con: duckdb.DuckDBPyConnection) -> None:
             commodity,
             category,
             COUNT(DISTINCT raw_unit)                                      AS units_available,
+            COALESCE(string_agg(DISTINCT CASE WHEN price_type = 'Wholesale' THEN raw_unit END, ', '), 'N/A') AS wholesale_units,
+            COALESCE(string_agg(DISTINCT CASE WHEN price_type = 'Retail' THEN raw_unit END, ', '), 'N/A')    AS retail_units,
             string_agg(DISTINCT raw_unit, ', ')                           AS reported_units,
             COUNT(*)                                                      AS total_observations,
             MIN(date)                                                     AS first_recorded_date,

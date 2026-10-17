@@ -12,7 +12,8 @@ title: Commodity Explorer
 SELECT
     commodity,
     category,
-    reported_units,
+    wholesale_units,
+    retail_units,
     total_observations,
     first_recorded_date,
     last_recorded_date
@@ -119,7 +120,8 @@ ORDER BY category, commodity, price_type
 <DataTable data={commodity_inventory} search=true pagination=true>
   <Column id="commodity" title="Commodity" />
   <Column id="category" title="Category" />
-  <Column id="reported_units" title="Units Traded" />
+  <Column id="wholesale_units" title="Wholesale Packaging" />
+  <Column id="retail_units" title="Retail Unit" />
   <Column id="total_observations" title="Observations" fmt="#,##0" />
   <Column id="first_recorded_date" title="First Record" />
   <Column id="last_recorded_date" title="Latest Record" />

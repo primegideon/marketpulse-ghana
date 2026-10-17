@@ -52,7 +52,19 @@ WITH latest_period AS (
     SELECT MAX(date) AS max_date FROM agri_ghana.mart_regional_spreads
 )
 SELECT
-    region,
+    CASE region
+        WHEN 'WESTERN' THEN 'Western'
+        WHEN 'CENTRAL' THEN 'Central'
+        WHEN 'ASHANTI' THEN 'Ashanti'
+        WHEN 'GREATER ACCRA' THEN 'Greater Accra'
+        WHEN 'EASTERN' THEN 'Eastern'
+        WHEN 'UPPER WEST' THEN 'Upper West'
+        WHEN 'NORTHERN' THEN 'Northern'
+        WHEN 'VOLTA' THEN 'Volta'
+        WHEN 'UPPER EAST' THEN 'Upper East'
+        WHEN 'BRONG AHAFO' THEN 'Brong-Ahafo'
+        ELSE region
+    END AS region,
     ROUND(AVG(market_median_ghs_per_kg), 2) AS regional_avg_price_per_kg,
     COUNT(DISTINCT market) AS active_markets
 FROM agri_ghana.mart_regional_spreads
@@ -99,8 +111,9 @@ ORDER BY total_observations DESC
   x=region
   y=regional_avg_price_per_kg
   yFmt="#,##0.00"
+  xLabelRotation=45
   title="Regional Price Level per Kilogram (GHS / KG)"
-  subtitle="Cost variations driven by transport costs, regional rainfall, and localized supply conditions"
+  subtitle="Cost variations driven by transport costs, regional rainfall, and localized supply conditions across all 10 regions"
   labels=true
 />
 

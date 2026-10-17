@@ -25,8 +25,7 @@ WITH latest_month AS (
 ),
 active_stats AS (
     SELECT
-        COUNT(DISTINCT commodity) AS tracked_commodities,
-        COUNT(DISTINCT raw_unit) AS tracked_units
+        COUNT(DISTINCT commodity) AS active_commodities
     FROM agri_ghana.mart_commodity_monthly
     WHERE date = (SELECT max_date FROM latest_month)
 ),
@@ -44,7 +43,8 @@ top_riser AS (
 )
 SELECT
     strftime((SELECT max_date FROM latest_month), '%B %Y') AS latest_period,
-    (SELECT tracked_commodities FROM active_stats) AS total_commodities,
+    (SELECT COUNT(*) FROM agri_ghana.dim_commodities) AS total_commodities,
+    (SELECT active_commodities FROM active_stats) AS active_commodities,
     (SELECT commodity || ' (' || price_type || ')' FROM top_riser) AS top_riser_name,
     (SELECT yoy_pct_change FROM top_riser) AS top_riser_yoy
 ```
@@ -108,6 +108,7 @@ LIMIT 15
   data={headline_kpis}
   value=total_commodities
   title="Monitored Food Staples"
+  subtitle={headline_kpis[0].active_commodities + " active in " + headline_kpis[0].latest_period}
 />
 
 <BigValue
