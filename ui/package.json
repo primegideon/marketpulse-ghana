@@ -5,7 +5,7 @@
     "dev": "evidence dev",
     "sources": "evidence sources",
     "sync:sources": "node -e \"import('fs-extra').then(({default:f})=>{f.mkdirpSync('.evidence/template');f.copySync('./sources','.evidence/template/sources');console.log('Sources synced to .evidence/template/sources')})\"",
-    "build": "npm run sync:sources && npm run sources && cross-env VITE_EVIDENCE_SPA=true evidence build",
+    "build": "npm run sync:sources && npm run sources && cross-env VITE_EVIDENCE_SPA=true evidence build && node -e \"import('fs-extra').then(({default:f})=>{if(f.existsSync('build/data')){f.copySync('build/data','build/static/data');console.log('Mirrored build/data to build/static/data')}})\"",
     "preview": "evidence preview"
   },
   "dependencies": {

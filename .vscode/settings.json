@@ -11,7 +11,7 @@
             "type": "file",
             "path": "${workspaceFolder}/agri_ghana.duckdb",
             "readOnly": true,
-            "attached": true
+            "attached": false
         }
     ],
     "duckdb.defaultDatabase": "agri_ghana"
