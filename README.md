@@ -148,6 +148,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to explore t
 
 ---
 
+## Troubleshooting & Client-Side Caching
+
+MarketPulse Ghana executes analytical queries in the browser using **DuckDB-WASM** and client Web Workers:
+
+* **Issue (`TProtocolException: Invalid data`)**:
+  * **Cause**: Following new dataset deployments, Chromium-based browsers (Google Chrome, Microsoft Edge, Brave) may retain active Web Workers or cached binary Parquet byte ranges in persistent storage, resulting in an Apache Thrift deserialization mismatch.
+  * **Resolution**:
+    * **Incognito Window**: Open the dashboard in an Incognito / Private window for a clean, un-cached DuckDB-WASM session.
+    * **Clear Site Storage**: In Chrome/Edge, open DevTools (`F12`), go to **Application > Storage**, click **Clear site data**, and reload the page.
+
+---
+
 ## Machine Learning Archive
 
 Earlier predictive modeling experiments targeting 1-month-ahead wholesale maize price forecasting with XGBoost and walk-forward cross-validation have been preserved in [`archive/ml/`](archive/ml/). When analytical reporting is established, predictive models can be reintroduced as a downstream forecast mart. Refer to [`archive/ml/README.md`](archive/ml/README.md) for complete details.
