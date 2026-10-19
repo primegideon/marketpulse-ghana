@@ -40,13 +40,27 @@ top_riser AS (
       AND yoy_pct_change IS NOT NULL
     ORDER BY yoy_pct_change DESC
     LIMIT 1
+),
+top_faller AS (
+    SELECT
+        commodity,
+        raw_unit,
+        price_type,
+        yoy_pct_change
+    FROM agri_ghana.mart_commodity_monthly
+    WHERE date = (SELECT max_date FROM latest_month)
+      AND yoy_pct_change IS NOT NULL
+    ORDER BY yoy_pct_change ASC
+    LIMIT 1
 )
 SELECT
     strftime((SELECT max_date FROM latest_month), '%B %Y') AS latest_period,
     (SELECT COUNT(*) FROM agri_ghana.dim_commodities) AS total_commodities,
     (SELECT active_commodities FROM active_stats) AS active_commodities,
     (SELECT commodity || ' (' || price_type || ')' FROM top_riser) AS top_riser_name,
-    (SELECT yoy_pct_change FROM top_riser) AS top_riser_yoy
+    (SELECT yoy_pct_change FROM top_riser) AS top_riser_yoy,
+    (SELECT commodity || ' (' || price_type || ')' FROM top_faller) AS top_faller_name,
+    (SELECT yoy_pct_change FROM top_faller) AS top_faller_yoy
 ```
 
 ```sql staple_trends
@@ -63,6 +77,7 @@ SELECT
 FROM agri_ghana.mart_commodity_monthly
 WHERE commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Plantains', 'Yam')
   AND price_type = 'Wholesale'
+  AND (commodity != 'Yam' OR raw_unit = '250 KG')
 ORDER BY date, commodity
 ```
 
@@ -116,6 +131,13 @@ LIMIT 15
   value=top_riser_name
   title="Highest 12M Inflation"
   subtitle={"+" + headline_kpis[0].top_riser_yoy + "% YoY"}
+/>
+
+<BigValue
+  data={headline_kpis}
+  value=top_faller_name
+  title="Most Stable / Lowest YoY"
+  subtitle={(headline_kpis[0].top_faller_yoy > 0 ? "+" : "") + headline_kpis[0].top_faller_yoy + "% YoY"}
 />
 
 <BigValue

@@ -105,25 +105,31 @@ Vercel Cloud Hosting
 * **Objective**: Build an interactive, fast, serverless web reporting product deployable on Vercel.
 * **Core Views & Deliverables**:
   1. **Executive Dashboard (`index.md`)**:
-     * Top-level KPI cards: Latest National Inflation Index, Top 3 Rising Staples, Top 3 Falling Staples.
-     * System Status Card: Displays data freshness and last execution timestamp from `meta_pipeline_runs`.
+     * Top-level KPI cards: Latest Reporting Period, Monitored Staples Count, Highest 12M Inflation Riser, Most Stable / Lowest YoY Staple, Pipeline Audit Status.
+     * Interactive Tabbed Visualizations: Standardized Per-KG Trends, Commercial Packaging Units (bags/crates), Top YoY Inflation Gainers ranking, and Recent Market Benchmarks data table.
   2. **Commodity Price Tracker (`commodities.md`)**:
-     * Interactive dropdowns allowing users to select commodities (Maize, Rice, Cassava, etc.).
-     * Multi-year historical price chart with seasonal trend overlays.
+     * Standardized Wholesale Benchmark (0 – 15 GHS / KG) tracking normalized trajectories across monitored staples.
+     * Cereal Wholesale Price per KG comparing Maize vs. Imported Rice vs. Indigenous Grains.
+     * Comprehensive Latest Month Price Matrix and complete Monitored Staples Directory.
   3. **Geographic Market Intelligence (`markets.md`)**:
-     * Spatial map of Ghana displaying monitoring markets using latitude and longitude.
-     * Color gradient depicting price intensity and regional variance.
+     * Wholesale Maize Price Disparities (% above or below national median benchmark) across monitoring hubs.
+     * Regional Price Level per Kilogram comparing all 10 administrative regions.
+     * Market Classification Breakdown across Tiers (Major National Hub, Regional Center, Local Market) and complete Market Directory with geographic coordinates.
   4. **Wholesale vs. Retail Spreads (`margins.md`)**:
-     * Comparative margin analysis highlighting middleman costs and retail markups over time.
-  5. **Data Governance & Transparency (`governance.md`)**:
-     * Comprehensive presentation of methodology, HDX source links, and the automated pipeline run history.
+     * Multi-year Maize Price Breakdown comparing commercial acquisition vs. retail checkout per kilogram.
+     * Representative Retail Markup Ranking across commodities.
+     * Market-Level Spread Observations table filtered through the data quality verification rule.
+  5. **Data Governance & Observability (`governance.md`)**:
+     * Operational Pipeline Audit Log (`meta_pipeline_runs`) tracking execution timestamps, durations, and record volumes.
+     * Data Quality & Anomaly Quarantine (`audit_data_anomalies`) detailing survey discrepancies and quarantined outlier records.
+     * Comprehensive presentation of methodology and HDX source provenance.
 
 ### Phase 4: Production Build & Vercel Deployment
 
 * **Objective**: Configure deterministic static builds and connect Vercel for continuous deployment.
 * **Key Tasks**:
   1. Validate Evidence build locally using `npm run build`.
-  2. Create `vercel.json` defining build commands and root directory settings.
+  2. Create `vercel.json` defining build commands, static data route mapping, and strict client-side anti-caching headers.
   3. Verify static SQL query extraction without database connection timeouts.
 
 ### Future Phase: Predictive Model Reintegration
@@ -138,9 +144,9 @@ Vercel Cloud Hosting
 
 ## 4. Immediate Next Step Checklist
 
-- [ ] **Step 1**: Update `scripts/ingest_hdx.py` to record execution metrics into `meta_pipeline_runs`.
-- [ ] **Step 2**: Create `scripts/build_marts.py` containing modular SQL definitions for staging views and marts.
-- [ ] **Step 3**: Validate marts in DuckDB (`stg_food_prices`, `dim_markets`, `dim_commodities`, `mart_commodity_monthly`).
-- [ ] **Step 4**: Scaffold the Evidence.dev application inside `ui/` and connect to `agri_ghana.duckdb`.
-- [ ] **Step 5**: Develop initial Evidence.dev dashboard pages and test local build.
-- [ ] **Step 6**: Configure `vercel.json` and deploy to production.
+- [x] **Step 1**: Update `scripts/ingest_hdx.py` to record execution metrics into `meta_pipeline_runs`.
+- [x] **Step 2**: Create `scripts/build_marts.py` containing modular SQL definitions for staging views, marts, and data quality anomaly quarantine.
+- [x] **Step 3**: Validate marts in DuckDB (`stg_food_prices`, `dim_markets`, `dim_commodities`, `dim_calendar`, `mart_commodity_monthly`, `mart_regional_spreads`, `mart_wholesale_retail_margins`, `audit_data_anomalies`).
+- [x] **Step 4**: Scaffold the Evidence.dev application inside `ui/` and connect to `agri_ghana.duckdb`.
+- [x] **Step 5**: Develop initial Evidence.dev dashboard pages and test local build.
+- [x] **Step 6**: Configure `vercel.json` with route rewrites and deploy to production on Vercel.

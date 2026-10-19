@@ -15,7 +15,7 @@ SELECT
     ROUND(MEDIAN(retail_markup_pct) / 100.0, 4) AS median_retail_markup_pct,
     COUNT(*) AS paired_observations
 FROM agri_ghana.mart_wholesale_retail_margins
-WHERE retail_markup_pct BETWEEN -30 AND 200
+WHERE is_verified_margin = TRUE
 GROUP BY commodity
 ORDER BY median_retail_markup_pct DESC
 ```
@@ -29,6 +29,7 @@ SELECT
     ROUND(AVG(margin_per_kg_ghs), 2) AS avg_margin_per_kg
 FROM agri_ghana.mart_wholesale_retail_margins
 WHERE commodity = 'Maize'
+  AND is_verified_margin = TRUE
 GROUP BY date, year_month
 ORDER BY date
 ```
@@ -45,7 +46,7 @@ SELECT
     ROUND(retail_markup_pct / 100.0, 4) AS retail_markup_pct
 FROM agri_ghana.mart_wholesale_retail_margins
 WHERE date = (SELECT MAX(date) FROM agri_ghana.mart_wholesale_retail_margins)
-  AND retail_markup_pct BETWEEN -30 AND 200
+  AND is_verified_margin = TRUE
 ORDER BY commodity, market
 ```
 
@@ -67,7 +68,7 @@ ORDER BY commodity, market
 
 ### Median Retail Markup Across Commodities
 
-> Calculated using median markup across paired market-level observations, excluding reporting anomalies to provide reliable commercial margins.
+> **Data Quality Rule**: Evaluated over verified paired market observations (`-30%` to `+200%` retail markup). Unverified field records (e.g. bulk unpeeled cassava roots from farmgate vs consumer retail checkout) are quarantined in `audit_data_anomalies`.
 
 <BarChart
   data={margin_overview}
@@ -86,7 +87,7 @@ ORDER BY commodity, market
 
 ### Current Market-Level Spread Observations
 
-> Displaying verified market-level paired observations. Source unit-reporting discrepancies have been filtered out.
+> Displaying verified market-level paired observations. Source unit-reporting discrepancies have been quarantined.
 
 <DataTable data={recent_margins_table} search=true pagination=true>
   <Column id="year_month" title="Period" />

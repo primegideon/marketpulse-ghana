@@ -62,6 +62,20 @@ FROM agri_ghana.mart_pipeline_health
 
 Every execution of the automated HDX download, DuckDB ingestion, and analytical mart transformation writes an audit record into DuckDB to guarantee system observability.
 
+```sql anomaly_log
+SELECT
+    date,
+    market,
+    region,
+    commodity,
+    anomaly_type,
+    anomaly_details,
+    resolution_status
+FROM agri_ghana.audit_data_anomalies
+ORDER BY date DESC, commodity
+LIMIT 50
+```
+
 <DataTable data={pipeline_runs} search=true pagination=true>
   <Column id="run_id" title="Run ID" />
   <Column id="started_at" title="Started At" />
@@ -74,6 +88,22 @@ Every execution of the automated HDX download, DuckDB ingestion, and analytical 
 
 ---
 
+## Data Quality & Anomaly Quarantine (`audit_data_anomalies`)
+
+Statistical anomalies, survey discrepancies, and unit inversions are quarantined from commercial reporting marts and logged here for transparent data governance:
+
+<DataTable data={anomaly_log} search=true pagination=true>
+  <Column id="date" title="Survey Date" />
+  <Column id="market" title="Market" />
+  <Column id="region" title="Region" />
+  <Column id="commodity" title="Commodity" />
+  <Column id="anomaly_type" title="Anomaly Type" />
+  <Column id="anomaly_details" title="Audit Description" />
+  <Column id="resolution_status" title="Governance Status" />
+</DataTable>
+
+---
+
 ## Data Provenance & Methodology
 
 1. **Source Registry**:
@@ -82,6 +112,6 @@ Every execution of the automated HDX download, DuckDB ingestion, and analytical 
    * National Partners: **Ministry of Food and Agriculture (MoFA, Ghana)** and **FAO GIEWS**
 2. **Analytical Engine**:
    * [DuckDB](https://duckdb.org/) embedded columnar database powering zero-copy local analytics.
-   * Automated SQL marts generate normalized pricing per kilogram, temporal lags, and regional spreads.
+   * Automated SQL marts generate normalized pricing per kilogram, temporal lags, spatial spreads, and quarantined anomaly layers.
 3. **Presentation Layer**:
    * Built with [Evidence.dev](https://evidence.dev/) compiled statically for sub-second page loads and zero server maintenance on Vercel.
