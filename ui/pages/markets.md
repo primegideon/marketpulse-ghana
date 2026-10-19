@@ -36,9 +36,9 @@ SELECT
     national_median_ghs,
     spread_to_national_ghs,
     ROUND(spread_to_national_pct / 100.0, 4) AS spread_to_national_pct,
-    ROUND(market_median_ghs / 100.0, 2) AS market_median_ghs_per_kg,
-    ROUND(national_median_ghs / 100.0, 2) AS national_median_ghs_per_kg,
-    ROUND(spread_to_national_ghs / 100.0, 2) AS spread_to_national_per_kg
+    market_median_ghs_per_kg,
+    national_median_ghs_per_kg,
+    spread_to_national_per_kg
 FROM agri_ghana.mart_regional_spreads
 WHERE date = (SELECT max_date FROM latest_period)
   AND commodity = 'Maize'
@@ -52,19 +52,7 @@ WITH latest_period AS (
     SELECT MAX(date) AS max_date FROM agri_ghana.mart_regional_spreads
 )
 SELECT
-    CASE region
-        WHEN 'WESTERN' THEN 'Western'
-        WHEN 'CENTRAL' THEN 'Central'
-        WHEN 'ASHANTI' THEN 'Ashanti'
-        WHEN 'GREATER ACCRA' THEN 'Greater Accra'
-        WHEN 'EASTERN' THEN 'Eastern'
-        WHEN 'UPPER WEST' THEN 'Upper West'
-        WHEN 'NORTHERN' THEN 'Northern'
-        WHEN 'VOLTA' THEN 'Volta'
-        WHEN 'UPPER EAST' THEN 'Upper East'
-        WHEN 'BRONG AHAFO' THEN 'Brong-Ahafo'
-        ELSE region
-    END AS region,
+    region,
     ROUND(AVG(market_median_ghs_per_kg), 2) AS regional_avg_price_per_kg,
     COUNT(DISTINCT market) AS active_markets
 FROM agri_ghana.mart_regional_spreads

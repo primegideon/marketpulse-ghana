@@ -27,11 +27,12 @@ SELECT
     year_month,
     commodity,
     price_type,
-    median_price_ghs_per_kg
+    ROUND(MEDIAN(median_price_ghs_per_kg), 2) AS median_price_ghs_per_kg
 FROM agri_ghana.mart_commodity_monthly
 WHERE median_price_ghs_per_kg IS NOT NULL
   AND price_type = 'Wholesale'
   AND commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Cowpeas', 'Millet', 'Sorghum')
+GROUP BY date, year_month, commodity, price_type
 ORDER BY date, commodity
 ```
 

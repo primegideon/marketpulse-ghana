@@ -91,7 +91,19 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
             month(date::DATE)                                             AS calendar_month,
             strftime(date::DATE, '%B')                                    AS month_name,
             strftime(date::DATE, '%Y-%m')                                 AS year_month,
-            admin1                                                        AS region,
+            CASE admin1
+                WHEN 'WESTERN' THEN 'Western'
+                WHEN 'CENTRAL' THEN 'Central'
+                WHEN 'ASHANTI' THEN 'Ashanti'
+                WHEN 'GREATER ACCRA' THEN 'Greater Accra'
+                WHEN 'EASTERN' THEN 'Eastern'
+                WHEN 'UPPER WEST' THEN 'Upper West'
+                WHEN 'NORTHERN' THEN 'Northern'
+                WHEN 'VOLTA' THEN 'Volta'
+                WHEN 'UPPER EAST' THEN 'Upper East'
+                WHEN 'BRONG AHAFO' THEN 'Brong-Ahafo'
+                ELSE admin1
+            END                                                           AS region,
             admin2                                                        AS district,
             market                                                        AS market,
             market_id::BIGINT                                             AS market_id,
@@ -138,7 +150,19 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
             market_id::BIGINT                                             AS market_id,
             market                                                        AS market,
             countryiso3                                                   AS country_iso3,
-            admin1                                                        AS region,
+            CASE admin1
+                WHEN 'WESTERN' THEN 'Western'
+                WHEN 'CENTRAL' THEN 'Central'
+                WHEN 'ASHANTI' THEN 'Ashanti'
+                WHEN 'GREATER ACCRA' THEN 'Greater Accra'
+                WHEN 'EASTERN' THEN 'Eastern'
+                WHEN 'UPPER WEST' THEN 'Upper West'
+                WHEN 'NORTHERN' THEN 'Northern'
+                WHEN 'VOLTA' THEN 'Volta'
+                WHEN 'UPPER EAST' THEN 'Upper East'
+                WHEN 'BRONG AHAFO' THEN 'Brong-Ahafo'
+                ELSE admin1
+            END                                                           AS region,
             admin2                                                        AS district,
             latitude::DOUBLE                                              AS latitude,
             longitude::DOUBLE                                             AS longitude
@@ -229,7 +253,7 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
     """Build analytical marts for reporting and visualization."""
     logger.info("Building analytical marts: mart_commodity_monthly, mart_regional_spreads, mart_wholesale_retail_margins")
 
-    # Mart: Monthly national commodity price trends with MoM and YoY growth
+    # Mart: Monthly national commodity price trends with true calendar MoM and YoY growth
     con.execute("""
         CREATE OR REPLACE VIEW mart_commodity_monthly AS
         WITH monthly_base AS (
@@ -257,14 +281,22 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
         lagged_metrics AS (
             SELECT
                 *,
+                LAG(date, 1) OVER (
+                    PARTITION BY commodity_id, raw_unit, price_type
+                    ORDER BY date
+                )                                                         AS prev_date,
                 LAG(median_price_ghs, 1) OVER (
                     PARTITION BY commodity_id, raw_unit, price_type
                     ORDER BY date
-                )                                                         AS prev_month_price_ghs,
+                )                                                         AS raw_prev_month_price_ghs,
+                LAG(date, 12) OVER (
+                    PARTITION BY commodity_id, raw_unit, price_type
+                    ORDER BY date
+                )                                                         AS prev_12_date,
                 LAG(median_price_ghs, 12) OVER (
                     PARTITION BY commodity_id, raw_unit, price_type
                     ORDER BY date
-                )                                                         AS prev_year_price_ghs,
+                )                                                         AS raw_prev_year_price_ghs,
                 AVG(median_price_ghs) OVER (
                     PARTITION BY commodity_id, raw_unit, price_type
                     ORDER BY date
@@ -278,15 +310,39 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
             FROM monthly_base
         )
         SELECT
-            *,
+            year_month,
+            date,
+            category,
+            commodity,
+            commodity_id,
+            raw_unit,
+            unit_family,
+            price_type,
+            median_price_ghs,
+            median_price_usd,
+            median_price_ghs_per_kg,
+            min_price_ghs,
+            max_price_ghs,
+            markets_reporting,
+            observations_count,
             CASE
-                WHEN prev_month_price_ghs > 0 THEN
-                    ROUND(((median_price_ghs - prev_month_price_ghs) / prev_month_price_ghs) * 100.0, 2)
+                WHEN prev_date IS NOT NULL AND (date - prev_date) BETWEEN 27 AND 35 THEN raw_prev_month_price_ghs
+                ELSE NULL
+            END                                                           AS prev_month_price_ghs,
+            CASE
+                WHEN prev_12_date IS NOT NULL AND (date - prev_12_date) BETWEEN 350 AND 380 THEN raw_prev_year_price_ghs
+                ELSE NULL
+            END                                                           AS prev_year_price_ghs,
+            moving_avg_3m_ghs,
+            moving_avg_12m_ghs,
+            CASE
+                WHEN prev_date IS NOT NULL AND (date - prev_date) BETWEEN 27 AND 35 AND raw_prev_month_price_ghs > 0 THEN
+                    ROUND(((median_price_ghs - raw_prev_month_price_ghs) / raw_prev_month_price_ghs) * 100.0, 2)
                 ELSE NULL
             END                                                           AS mom_pct_change,
             CASE
-                WHEN prev_year_price_ghs > 0 THEN
-                    ROUND(((median_price_ghs - prev_year_price_ghs) / prev_year_price_ghs) * 100.0, 2)
+                WHEN prev_12_date IS NOT NULL AND (date - prev_12_date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
+                    ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
                 ELSE NULL
             END                                                           AS yoy_pct_change
         FROM lagged_metrics
@@ -341,12 +397,19 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
             m.market_median_ghs,
             m.market_median_ghs_per_kg,
             n.national_median_ghs,
+            n.national_median_ghs_per_kg,
             ROUND(m.market_median_ghs - n.national_median_ghs, 2)         AS spread_to_national_ghs,
             CASE
                 WHEN n.national_median_ghs > 0 THEN
                     ROUND(((m.market_median_ghs - n.national_median_ghs) / n.national_median_ghs) * 100.0, 2)
                 ELSE NULL
-            END                                                           AS spread_to_national_pct
+            END                                                           AS spread_to_national_pct,
+            ROUND(m.market_median_ghs_per_kg - n.national_median_ghs_per_kg, 2) AS spread_to_national_per_kg,
+            CASE
+                WHEN n.national_median_ghs_per_kg > 0 THEN
+                    ROUND(((m.market_median_ghs_per_kg - n.national_median_ghs_per_kg) / n.national_median_ghs_per_kg) * 100.0, 2)
+                ELSE NULL
+            END                                                           AS spread_to_national_per_kg_pct
         FROM market_monthly m
         JOIN national_monthly n
             ON m.year_month = n.year_month
@@ -388,7 +451,12 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
                 WHEN wholesale_price_per_kg > 0 THEN
                     ROUND(((retail_price_per_kg - wholesale_price_per_kg) / wholesale_price_per_kg) * 100.0, 2)
                 ELSE NULL
-            END                                                                    AS retail_markup_pct
+            END                                                                    AS retail_markup_pct,
+            CASE
+                WHEN ((retail_price_per_kg - wholesale_price_per_kg) / NULLIF(wholesale_price_per_kg, 0)) * 100.0 BETWEEN -30.0 AND 200.0
+                THEN TRUE
+                ELSE FALSE
+            END                                                                    AS is_verified_margin
         FROM paired_observations
         WHERE wholesale_price_per_kg IS NOT NULL
           AND retail_price_per_kg IS NOT NULL
@@ -410,6 +478,34 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
             error_details
         FROM meta_pipeline_runs
         ORDER BY started_at DESC
+    """)
+
+    # Mart: Data quality and anomaly quarantine log (Project Plan Phase 2 Requirement)
+    con.execute("""
+        CREATE OR REPLACE VIEW audit_data_anomalies AS
+        SELECT
+            date,
+            market,
+            region,
+            commodity,
+            'Margin Inversion / Outlier Markup'                           AS anomaly_type,
+            'Wholesale GHS ' || ROUND(wholesale_price_per_kg, 2) || '/kg vs Retail GHS ' || ROUND(retail_price_per_kg, 2) || '/kg (' || retail_markup_pct || '% markup)' AS anomaly_details,
+            'Quarantined from commercial margin benchmarks'              AS resolution_status
+        FROM mart_wholesale_retail_margins
+        WHERE is_verified_margin = FALSE
+
+        UNION ALL
+
+        SELECT
+            date,
+            market,
+            region,
+            commodity,
+            'Extreme Unit Price Outlier'                                  AS anomaly_type,
+            'Reported GHS ' || ROUND(price_ghs, 2) || ' (' || ROUND(price_ghs_per_kg, 2) || ' GHS/kg, ' || raw_unit || ')' AS anomaly_details,
+            'Preserved in raw audit layer; flagged for monitoring'        AS resolution_status
+        FROM stg_food_prices
+        WHERE price_ghs_per_kg > 100.0 OR price_ghs_per_kg < 0.05
     """)
 
 
@@ -438,6 +534,7 @@ def execute_build(db_path: Path) -> Dict[str, Any]:
             "mart_regional_spreads",
             "mart_wholesale_retail_margins",
             "mart_pipeline_health",
+            "audit_data_anomalies",
         ]
 
         metrics = {}
