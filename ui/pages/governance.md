@@ -104,7 +104,29 @@ Statistical anomalies, survey discrepancies, and unit inversions are quarantined
 
 ---
 
-## Data Provenance & Methodology
+## Analytical Methodology & Macroeconomic Context
+
+### 1. Nominal vs. Real Pricing (Monetary Inflation)
+All prices presented across MarketPulse Ghana are denominated in **Nominal Ghanaian Cedis (GHS)** and USD equivalents at prevailing historical exchange rates. Over the 17-year monitoring period (2006–2023), Ghana experienced significant macroeconomic currency depreciation and periods of high headline inflation (exceeding 54% Year-over-Year in late 2022). Analysts evaluating multi-year secular growth curves must note that price increases reflect national monetary expansion and exchange-rate pressures alongside physical agricultural supply dynamics.
+
+### 2. Administrative Boundaries (10 Legacy vs. 16 Modern Regions)
+The WFP monitoring program anchors spatial observations to Ghana's **10 historical administrative regions** established prior to the 2018 national referenda:
+* **Brong Ahafo**: Encompasses modern *Bono*, *Bono East*, and *Ahafo* regions.
+* **Northern**: Encompasses modern *Northern*, *Savannah*, and *North East* regions.
+* **Volta**: Encompasses modern *Volta* and *Oti* regions.
+* **Western**: Encompasses modern *Western* and *Western North* regions.
+
+Standardizing to the 10 legacy regions preserves longitudinal spatial continuity across all 17 years without statistical breaks.
+
+### 3. Agro-Ecological Seasonality & Crop Cycles
+Price dynamics across Ghana are governed by distinct agro-climatic rainfall regimes:
+* **Bimodal Rainfall (Southern & Middle Belts)**: Features two distinct harvests—the **Major Season harvest** (August–September) and the **Minor Season harvest** (November–December).
+* **Unimodal Rainfall (Northern Grain Belt)**: A single concentrated rainy season yields a single major harvest between October and November.
+* **The "Lean Season" (Hunger Gap)**: Occurs annually between **May and July** across northern markets as household granaries deplete ahead of the new harvest, creating predictable cyclical price surges for grains (Maize, Millet, Sorghum).
+
+---
+
+## Data Provenance & Technical Architecture
 
 1. **Source Registry**:
    * Published by: **United Nations World Food Programme (WFP)**
@@ -112,6 +134,9 @@ Statistical anomalies, survey discrepancies, and unit inversions are quarantined
    * National Partners: **Ministry of Food and Agriculture (MoFA, Ghana)** and **FAO GIEWS**
 2. **Analytical Engine**:
    * [DuckDB](https://duckdb.org/) embedded columnar database powering zero-copy local analytics.
-   * Automated SQL marts generate normalized pricing per kilogram, temporal lags, spatial spreads, and quarantined anomaly layers.
-3. **Presentation Layer**:
-   * Built with [Evidence.dev](https://evidence.dev/) compiled statically for sub-second page loads and zero server maintenance on Vercel.
+   * Automated SQL marts generate normalized pricing per kilogram, calendar-aware temporal lags, spatial spreads, and quarantined anomaly layers.
+3. **Data Quality & Testing**:
+   * Automated regression test suite (`scripts/test_marts.py`) verifying 27 data contracts, composite primary keys, price non-negativity, and margin validity before each CI/CD deployment.
+   * Complete schema catalog documented in the [Data Dictionary](file:///docs/DATA_DICTIONARY.md).
+4. **Presentation Layer**:
+   * Built with [Evidence.dev](https://evidence.dev/) compiled statically into WebAssembly and client-side Parquet for sub-second page loads on Vercel.
