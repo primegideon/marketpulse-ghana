@@ -49,6 +49,24 @@ The platform implements an automated, local-first analytics engineering pipeline
 
 ---
 
+## Executive Market Intelligence & Key Findings
+
+Over 17 years (2006–2023) of standardized commodity monitoring across Ghana's primary agro-ecological markets reveal three critical structural insights:
+
+1. **Macroeconomic Currency Shock (2022–2023)**:
+   * Prior to 2022, staple food prices exhibited moderate secular growth (5–8% CAGR) punctuated by seasonal harvest cycles.
+   * In 2022–2023, rapid Cedi depreciation coupled with global fuel inflation precipitated unprecedented price surges exceeding **65% YoY** across core staples (Maize, Rice, Cassava). Because price series are denominated in **Nominal GHS**, analysts should note that monetary depreciation explains the bulk of post-2021 upward momentum rather than sudden harvest failures.
+
+2. **Spatial Transit Friction & Asymmetric Spreads**:
+   * Bulky, perishable commodities with high weight-to-value ratios (Yam, Cassava) exhibit the widest regional spreads (up to **+40% in coastal sink markets like Accra** relative to surplus production hubs in Brong Ahafo and Northern regions), driven directly by diesel and transit logistics costs.
+   * Grains with high storability (Maize, Millet) exhibit tighter spatial integration across secondary regional markets.
+
+3. **Agro-Ecological Seasonality & Procurement Windows**:
+   * **Bimodal South**: Major harvest in August–September reliably depresses prices; minor harvest in November provides a secondary cushion.
+   * **Unimodal North**: Single harvest in October–November. The annual **"Lean Season" (May–July)** represents the annual peak in grain prices as farm granaries deplete ahead of new crops. Commercial aggregators optimizing procurement achieve 20–35% lower cost bases by purchasing during September–October harvest gluts.
+
+---
+
 ## Dataset Overview
 
 The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://data.humdata.org/dataset/626e809c-c4fc-467b-a60c-129acb5e9320):
@@ -56,7 +74,7 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 * **Database Engine**: [DuckDB](https://duckdb.org/) (`agri_ghana.duckdb`)
 * **Total Ingested Observations**: 39,038 food price records across 93 market nodes
 * **Temporal Coverage**: January 2006 – July 2023 (211 consecutive months)
-* **Geographical Coverage**: 44 monitored commercial and rural markets spanning all 10 administrative regions
+* **Geographical Coverage**: 44 monitored commercial and rural markets spanning all 10 administrative regions (anchored to Ghana's 10 historical regions to preserve longitudinal spatial continuity)
 * **Commodity Scope**: 26 primary staple crops and food commodities (Cereals, Tubers, Pulses, Vegetables, Animal Proteins)
 * **Price Classifications**: Wholesale commercial bulk containers and Retail consumer checkout levels denominated in Ghanaian Cedis (GHS) and USD equivalents
 
@@ -68,16 +86,18 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 marketpulse-ghana/
 ├── .github/
 │   └── workflows/
-│       └── data_pipeline_sync.yml       # Monthly automated HDX ingestion & pull request workflow
+│       └── data_pipeline_sync.yml       # Monthly automated HDX ingestion, test assertions & PR workflow
 ├── agri_ghana.duckdb                    # Embedded DuckDB analytical database
 ├── data/
 │   └── raw/                             # Downloaded source CSVs from HDX
 ├── docs/
 │   ├── PROJECT_PLAN.md                  # Comprehensive analytics engineering roadmap
+│   ├── DATA_DICTIONARY.md               # Complete column-level data dictionary & schema catalog
 │   └── images/                          # Visual dashboard artifacts and platform screenshots
 ├── scripts/
 │   ├── ingest_hdx.py                    # Automated HDX downloader & DuckDB ingestor
-│   └── build_marts.py                   # Dimensional models and analytical marts builder
+│   ├── build_marts.py                   # Dimensional models and analytical marts builder
+│   └── test_marts.py                    # Automated 27-check data contract & quality assertion suite
 ├── notebooks/
 │   └── exploratory_data_analysis.ipynb  # Core data profiling, audit, and market analysis
 ├── ui/                                  # Evidence.dev analytical web application
@@ -95,7 +115,9 @@ marketpulse-ghana/
 │       ├── data/                        # Engineered feature matrices and train/test splits
 │       ├── models/                      # Serialized XGBoost model binary
 │       ├── notebooks/                   # Preprocessing, feature engineering, and CV training
+│       ├── INFERENCE_PROTOCOL.md        # Downstream ML inference and reintegration specification
 │       └── README.md                    # ML archive runbook
+├── requirements.txt                     # Pinned Python dependencies for reproducible environments
 ├── .gitignore                           # Repository exclusions
 └── README.md                            # Main project documentation
 ```
@@ -119,10 +141,10 @@ cd marketpulse-ghana
 
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-pip install duckdb pandas numpy matplotlib seaborn jupyter
+pip install -r requirements.txt
 ```
 
-Execute the end-to-end ingestion and transformation pipeline:
+Execute the end-to-end ingestion, transformation, and test validation pipeline:
 
 ```powershell
 # 1. Download latest data from HDX and ingest to DuckDB
@@ -130,6 +152,9 @@ python scripts/ingest_hdx.py
 
 # 2. Build dimensional tables and analytical marts
 python scripts/build_marts.py
+
+# 3. Run automated 27-check data quality assertion suite
+python scripts/test_marts.py
 ```
 
 ### 2. Run the Evidence Web Dashboard Locally

@@ -453,7 +453,8 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
                 ELSE NULL
             END                                                                    AS retail_markup_pct,
             CASE
-                WHEN ((retail_price_per_kg - wholesale_price_per_kg) / NULLIF(wholesale_price_per_kg, 0)) * 100.0 BETWEEN -30.0 AND 200.0
+                WHEN retail_price_per_kg >= wholesale_price_per_kg
+                 AND ((retail_price_per_kg - wholesale_price_per_kg) / NULLIF(wholesale_price_per_kg, 0)) * 100.0 <= 200.0
                 THEN TRUE
                 ELSE FALSE
             END                                                                    AS is_verified_margin
