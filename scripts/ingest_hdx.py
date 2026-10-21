@@ -68,8 +68,8 @@ def record_pipeline_run(
     con.execute("""
         CREATE TABLE IF NOT EXISTS meta_pipeline_runs (
             run_id VARCHAR,
-            started_at TIMESTAMP,
-            completed_at TIMESTAMP,
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
             pipeline_step VARCHAR,
             status VARCHAR,
             records_affected BIGINT,
@@ -104,45 +104,82 @@ def record_pipeline_run(
     )
 
 
-def download_file(url: str, destination: Path, timeout: int = 60) -> Path:
-    """Download a remote file over HTTP/HTTPS with proper header configuration.
+def download_file(url: str, destination: Path, timeout: int = 60, max_retries: int = 3) -> Path:
+    """Download a remote file over HTTP/HTTPS with retry logic and row-count validation.
 
     Args:
         url: Direct download URL for the target resource.
         destination: Local path where the downloaded file should be written.
-        timeout: Network timeout in seconds.
+        timeout: Network timeout in seconds per attempt.
+        max_retries: Maximum number of download attempts before raising.
 
     Returns:
         The resolved Path to the downloaded file.
 
     Raises:
-        urllib.error.URLError: If connection fails or URL is unreachable.
-        RuntimeError: If download response indicates an error status.
+        urllib.error.URLError: If all connection attempts fail.
+        RuntimeError: If download response indicates an error status or row count is suspiciously low.
     """
     destination.parent.mkdir(parents=True, exist_ok=True)
     temp_destination = destination.with_suffix(".tmp")
     headers = {"User-Agent": "MarketPulse-Ghana-DataIngestion/1.0"}
+    # Known baseline: wfp_food_prices_gha.csv has 39,038+ rows; markets file has 93 rows.
+    # A floor of 50 catches catastrophically truncated downloads for both files.
+    MIN_ROW_FLOOR = 50
 
     logger.info("Initiating download: %s -> %s", url, destination)
-    request = urllib.request.Request(url, headers=headers)
 
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            with open(temp_destination, "wb") as output_file:
-                shutil.copyfileobj(response, output_file)
-        temp_destination.replace(destination)
-        file_size_mb = destination.stat().st_size / (1024 * 1024)
-        logger.info(
-            "Download completed successfully: %s (%.2f MB)",
-            destination.name,
-            file_size_mb,
-        )
-        return destination
-    except Exception as exc:
-        if temp_destination.exists():
-            temp_destination.unlink()
-        logger.error("Failed to download resource from %s: %s", url, str(exc))
-        raise
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                with open(temp_destination, "wb") as output_file:
+                    shutil.copyfileobj(response, output_file)
+
+            # Integrity check: verify downloaded CSV is not truncated or empty
+            _integrity_con = duckdb.connect()
+            try:
+                row_count = _integrity_con.execute(
+                    f"SELECT COUNT(*) FROM read_csv_auto('{temp_destination.as_posix()}', header=True)"
+                ).fetchone()[0]
+            finally:
+                _integrity_con.close()
+
+            if row_count < MIN_ROW_FLOOR:
+                raise RuntimeError(
+                    f"Integrity check failed: downloaded file has only {row_count} rows "
+                    f"(floor: {MIN_ROW_FLOOR}). File may be truncated or empty."
+                )
+
+            temp_destination.replace(destination)
+            file_size_mb = destination.stat().st_size / (1024 * 1024)
+            logger.info(
+                "Download completed successfully: %s (%.2f MB, %d rows validated)",
+                destination.name,
+                file_size_mb,
+                row_count,
+            )
+            return destination
+
+        except Exception as exc:
+            last_exc = exc
+            if temp_destination.exists():
+                temp_destination.unlink()
+            if attempt < max_retries:
+                wait_s = 5 * attempt
+                logger.warning(
+                    "Download attempt %d/%d failed: %s. Retrying in %ds...",
+                    attempt, max_retries, exc, wait_s,
+                )
+                time.sleep(wait_s)
+            else:
+                logger.error(
+                    "All %d download attempts failed for %s: %s",
+                    max_retries, url, exc,
+                )
+
+    raise last_exc  # type: ignore[misc]
 
 
 def ingest_to_duckdb(

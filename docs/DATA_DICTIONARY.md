@@ -54,13 +54,12 @@ This document defines the physical schema, grain, primary keys, calculation logi
 | `commodity` | `VARCHAR` | No | Standardized commodity name. | `Maize` |
 | `category` | `VARCHAR` | No | Broad food commodity group. | `cereals and tubers` |
 | `raw_unit` | `VARCHAR` | No | Unit of sale reported in market surveys (`100 KG`, `50 KG`, `KG`, `Olonka`, etc.). | `100 KG` |
-| `unit_family` | `VARCHAR` | No | Broad unit categorization (`Mass / Weight`, `Piece / Count`, `Volume`). | `Mass / Weight` |
-| `standard_unit` | `VARCHAR` | No | Standardized normalized unit (`KG`, `Piece`, `Tubers`). | `KG` |
-| `kg_conversion_factor` | `DOUBLE` | Yes | Multiplier to normalize raw unit to kilograms (e.g. `100 KG` = 100.0, `Olonka` = 2.5). NULL for non-mass units. | `100.0` |
+| `unit_family` | `VARCHAR` | No | Broad unit categorization: `'Mass / Weight'` (KG-based), `'Piece / Count'` (tubers, bunches, items). | `Mass / Weight` |
+| `unit_weight_kg` | `DOUBLE` | Yes | Numeric kilogram weight extracted from the unit string (e.g. `100 KG` → `100.0`, bare `KG` → `1.0`). `NULL` for non-mass units. | `100.0` |
 | `price_type` | `VARCHAR` | No | Point in value chain (`Wholesale` or `Retail`). | `Wholesale` |
 | `price_ghs` | `DOUBLE` | No | Observed price in Ghanaian Cedis (GHS). | `350.0` |
 | `price_usd` | `DOUBLE` | No | Observed price in US Dollars (USD) at prevailing exchange rate. | `31.25` |
-| `price_ghs_per_kg` | `DOUBLE` | Yes | Standardized unit price: `ROUND(price_ghs / kg_conversion_factor, 2)`. NULL for piece/count units. | `3.50` |
+| `price_ghs_per_kg` | `DOUBLE` | Yes | Standardized unit price: `price_ghs / unit_weight_kg`. `NULL` for non-mass units. | `3.50` |
 
 ---
 
@@ -76,9 +75,13 @@ This document defines the physical schema, grain, primary keys, calculation logi
 | `commodity` | `VARCHAR` | No | Primary Key. Standardized commodity name. | `Cassava` |
 | `commodity_id` | `BIGINT` | No | WFP global commodity reference ID. | `52` |
 | `category` | `VARCHAR` | No | Agro-food classification (`cereals and tubers`, `pulses and nuts`, `vegetables and fruits`, etc.). | `cereals and tubers` |
-| `primary_unit` | `VARCHAR` | No | Predominant commercial unit used in wholesale markets. | `91 KG` |
-| `standard_unit` | `VARCHAR` | No | Normalized physical unit (`KG`, `Piece`). | `KG` |
-| `kg_conversion_factor` | `DOUBLE` | Yes | Kilogram standard conversion factor. | `91.0` |
+| `units_available` | `BIGINT` | No | Count of distinct packaging unit types observed for this commodity across all records. | `3` |
+| `wholesale_units` | `VARCHAR` | No | Comma-separated list of distinct packaging units observed in Wholesale transactions. `N/A` if none. | `100 KG, 50 KG` |
+| `retail_units` | `VARCHAR` | No | Comma-separated list of distinct packaging units observed in Retail transactions. `N/A` if none. | `KG, Bunch` |
+| `reported_units` | `VARCHAR` | No | Comma-separated list of all distinct units reported across both price types combined. | `100 KG, 50 KG, KG` |
+| `total_observations` | `BIGINT` | No | Total raw survey records for this commodity across all markets and dates. | `1520` |
+| `first_recorded_date` | `DATE` | No | Earliest observation date in the dataset for this commodity. | `2006-01-01` |
+| `last_recorded_date` | `DATE` | No | Most recent observation date for this commodity. | `2023-07-01` |
 
 ### `dim_markets`
 * **Type**: SQL View
