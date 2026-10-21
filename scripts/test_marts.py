@@ -124,9 +124,15 @@ def run_assertions():
         0
     )
     assert_check(
-        "mart_commodity_monthly mass-standardized commodities have 0 NULLs for per-kg price",
+        "mart_commodity_monthly mass-standardized (Mass / Weight) commodities have 0 NULLs for per-kg price",
         """SELECT COUNT(*) FROM mart_commodity_monthly
            WHERE unit_family = 'Mass / Weight' AND median_price_ghs_per_kg IS NULL""",
+        0
+    )
+    assert_check(
+        "stg_food_prices unit_family uses canonical label set (Mass / Weight, Piece / Count)",
+        """SELECT COUNT(*) FROM stg_food_prices
+           WHERE unit_family NOT IN ('Mass / Weight', 'Piece / Count')""",
         0
     )
     assert_check(

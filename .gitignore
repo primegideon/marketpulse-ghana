@@ -235,7 +235,9 @@ data/raw/
 
 # Internal presentations and submission reports (local workspace only)
 docs/*.pptx
+docs/*.docx
 docs/MarketPulse_Ghana_Presentation.pptx
 docs/FINAL_PROJECT_REPORT.md
+docs/FINAL_PROJECT_REPORT.docx
 docs/SLIDE_DECK.md
 

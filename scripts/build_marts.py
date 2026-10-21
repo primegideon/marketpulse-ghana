@@ -42,8 +42,8 @@ def record_pipeline_run(
     con.execute("""
         CREATE TABLE IF NOT EXISTS meta_pipeline_runs (
             run_id VARCHAR,
-            started_at TIMESTAMP,
-            completed_at TIMESTAMP,
+            started_at TIMESTAMPTZ,
+            completed_at TIMESTAMPTZ,
             pipeline_step VARCHAR,
             status VARCHAR,
             records_affected BIGINT,
@@ -86,7 +86,7 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("""
         CREATE OR REPLACE VIEW stg_food_prices AS
         SELECT
-            date::DATE                                                    AS date,
+            DATE_TRUNC('month', date::DATE)                               AS date,
             year(date::DATE)                                              AS calendar_year,
             month(date::DATE)                                             AS calendar_month,
             strftime(date::DATE, '%B')                                    AS month_name,
@@ -119,10 +119,10 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
                 ELSE NULL
             END                                                           AS unit_weight_kg,
             CASE
-                WHEN unit LIKE '%KG%' THEN 'KG'
-                WHEN unit LIKE '%Tuber%' THEN 'Tuber'
-                WHEN unit LIKE '%Bunch%' THEN 'Bunch'
-                ELSE 'Item'
+                WHEN unit LIKE '%KG%' THEN 'Mass / Weight'
+                WHEN unit LIKE '%Tuber%' THEN 'Piece / Count'
+                WHEN unit LIKE '%Bunch%' THEN 'Piece / Count'
+                ELSE 'Piece / Count'
             END                                                           AS unit_family,
             priceflag                                                     AS price_flag,
             pricetype                                                     AS price_type,
@@ -201,7 +201,10 @@ def build_dimension_layer(con: duckdb.DuckDBPyConnection) -> None:
             s.last_observation_date,
             CASE
                 WHEN m.market IN ('Accra', 'Tema', 'Kumasi') THEN 'Major National Hub'
-                WHEN m.market IN ('Sekondi/Takoradi', 'Tamale', 'Cape Coast', 'Sunyani') THEN 'Regional Center'
+                WHEN m.market IN (
+                    'Sekondi/Takoradi', 'Tamale', 'Cape Coast', 'Sunyani',
+                    'Bolgatanga', 'Wa', 'Bawku', 'Koforidua', 'Ho'
+                ) THEN 'Regional Center'
                 ELSE 'Local Market'
             END                                                           AS market_tier
         FROM stg_markets m
@@ -300,12 +303,12 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
                 AVG(median_price_ghs) OVER (
                     PARTITION BY commodity_id, raw_unit, price_type
                     ORDER BY date
-                    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+                    RANGE BETWEEN INTERVAL '2' MONTH PRECEDING AND CURRENT ROW
                 )                                                         AS moving_avg_3m_ghs,
                 AVG(median_price_ghs) OVER (
                     PARTITION BY commodity_id, raw_unit, price_type
                     ORDER BY date
-                    ROWS BETWEEN 11 PRECEDING AND CURRENT ROW
+                    RANGE BETWEEN INTERVAL '11' MONTH PRECEDING AND CURRENT ROW
                 )                                                         AS moving_avg_12m_ghs
             FROM monthly_base
         )
@@ -326,22 +329,22 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
             markets_reporting,
             observations_count,
             CASE
-                WHEN prev_date IS NOT NULL AND (date - prev_date) BETWEEN 27 AND 35 THEN raw_prev_month_price_ghs
+                WHEN prev_date IS NOT NULL AND DATEDIFF('day', prev_date, date) BETWEEN 27 AND 35 THEN raw_prev_month_price_ghs
                 ELSE NULL
             END                                                           AS prev_month_price_ghs,
             CASE
-                WHEN prev_12_date IS NOT NULL AND (date - prev_12_date) BETWEEN 350 AND 380 THEN raw_prev_year_price_ghs
+                WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 THEN raw_prev_year_price_ghs
                 ELSE NULL
             END                                                           AS prev_year_price_ghs,
             moving_avg_3m_ghs,
             moving_avg_12m_ghs,
             CASE
-                WHEN prev_date IS NOT NULL AND (date - prev_date) BETWEEN 27 AND 35 AND raw_prev_month_price_ghs > 0 THEN
+                WHEN prev_date IS NOT NULL AND DATEDIFF('day', prev_date, date) BETWEEN 27 AND 35 AND raw_prev_month_price_ghs > 0 THEN
                     ROUND(((median_price_ghs - raw_prev_month_price_ghs) / raw_prev_month_price_ghs) * 100.0, 2)
                 ELSE NULL
             END                                                           AS mom_pct_change,
             CASE
-                WHEN prev_12_date IS NOT NULL AND (date - prev_12_date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
+                WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
                     ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
                 ELSE NULL
             END                                                           AS yoy_pct_change
@@ -430,8 +433,8 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
                 region,
                 commodity_id,
                 commodity,
-                MAX(CASE WHEN price_type = 'Wholesale' THEN price_ghs_per_kg END)  AS wholesale_price_per_kg,
-                MAX(CASE WHEN price_type = 'Retail' THEN price_ghs_per_kg END)     AS retail_price_per_kg
+                MEDIAN(CASE WHEN price_type = 'Wholesale' THEN price_ghs_per_kg END)  AS wholesale_price_per_kg,
+                MEDIAN(CASE WHEN price_type = 'Retail' THEN price_ghs_per_kg END)     AS retail_price_per_kg
             FROM stg_food_prices
             WHERE price_ghs_per_kg IS NOT NULL
             GROUP BY year_month, date, market_id, market, region, commodity_id, commodity
