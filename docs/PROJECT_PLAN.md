@@ -28,25 +28,25 @@ scripts/ingest_hdx.py
    │     └── meta_pipeline_runs (operational audit & execution log)
    │
    ▼ [Phase 2: SQL Transformation & Modeling Layer]
-scripts/build_marts.py (or sql/ migrations)
+scripts/build_marts.py
    │
    ├── Staging Layer:
    │     ├── stg_food_prices (unit normalization, price cleaning, typed columns)
    │     └── stg_markets (verified coordinate bounds, normalized administrative names)
    ├── Dimension Layer:
-   │     ├── dim_markets (market_id, market, admin1, admin2, latitude, longitude)
-   │     ├── dim_commodities (commodity_id, commodity, category, standardized_unit)
-   │     └── dim_date (date, year, month, quarter, season_phase)
+   │     ├── dim_markets (market_id, market, region, district, latitude, longitude, total_observations, commodities_monitored, market_tier)
+   │     ├── dim_commodities (commodity_id, commodity, category, units_available, wholesale_units, retail_units, total_observations)
+   │     └── dim_calendar (date, year, month, quarter, month_name, year_month, agricultural_season)
    └── Analytical Marts:
-         ├── mart_commodity_monthly (monthly medians, MoM % change, YoY % change)
-         ├── mart_regional_spreads (price differentials between production & consumer hubs)
-         ├── mart_wholesale_retail_margins (spread and markup percentage)
-         └── mart_pipeline_health (data freshness and pipeline audit records)
+         ├── mart_commodity_monthly (monthly medians, MoM % change, YoY % change, 3m/12m moving averages)
+         ├── mart_regional_spreads (price differentials between production & consumer hubs, per-kg spread metrics)
+         ├── mart_wholesale_retail_margins (MEDIAN-aggregated spread and markup percentage, is_verified_margin flag)
+         └── mart_pipeline_health (Evidence.dev-facing view of meta_pipeline_runs, sorted newest-first)
    │
    ▼ [Phase 3: Evidence.dev Web UI]
 ui/ (Evidence project directory)
    │
-   ├── evidence.settings.json (configured with duckdb connector to agri_ghana.duckdb)
+   ├── evidence.config.yaml (configured with duckdb connector to agri_ghana.duckdb)
    ├── pages/
    │     ├── index.md (Executive overview, inflation KPI cards, pipeline health card)
    │     ├── commodities.md (Time-series explorer, seasonality analysis, unit prices)
@@ -93,8 +93,8 @@ Vercel Cloud Hosting
      * Calculate monthly medians per commodity, unit, price type, and market.
      * Derive national monthly benchmarks.
   3. **Growth Metrics**:
-     * Calculate Month-over-Month (MoM) growth using `LAG(median_price, 1) OVER (...)`.
-     * Calculate Year-over-Year (YoY) inflation using `LAG(median_price, 12) OVER (...)`.
+     * Calculate Month-over-Month (MoM) growth using `LAG(median_price, 1) OVER (...)` with strict `DATEDIFF('day', prev_date, date) BETWEEN 27 AND 35` guard to prevent false spikes from survey gaps.
+     * Calculate Year-over-Year (YoY) inflation using `LAG(median_price, 12) OVER (...)` with `DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380` guard.
   4. **Regional Spread Analysis**:
      * Benchmark secondary markets against primary consumption centers (e.g., Accra, Kumasi).
   5. **Data Quality & Anomaly Quarantine**:
@@ -134,9 +134,9 @@ Vercel Cloud Hosting
 
 ### Future Phase: Predictive Model Reintegration
 
-* **Context**: Machine learning components (Phase 2 & Phase 3) are safely consolidated in `archive/ml/`.
+* **Context**: Machine learning components (Phase 2 & Phase 3) are safely consolidated in `archive/ml/`. A formal `archive/ml/INFERENCE_PROTOCOL.md` defines the full downstream contract.
 * **Reintegration Path**:
-  1. Preprocessing script reads directly from DuckDB `stg_food_prices`.
+  1. Preprocessing script reads directly from DuckDB `mart_commodity_monthly` (clean, normalized historical actuals).
   2. Inference outputs are written to DuckDB as `mart_maize_forecasts`.
   3. Evidence.dev page displays actual historical prices seamlessly stitched to model projections.
 
@@ -144,9 +144,11 @@ Vercel Cloud Hosting
 
 ## 4. Immediate Next Step Checklist
 
-- [x] **Step 1**: Update `scripts/ingest_hdx.py` to record execution metrics into `meta_pipeline_runs`.
-- [x] **Step 2**: Create `scripts/build_marts.py` containing modular SQL definitions for staging views, marts, and data quality anomaly quarantine.
-- [x] **Step 3**: Validate marts in DuckDB (`stg_food_prices`, `dim_markets`, `dim_commodities`, `dim_calendar`, `mart_commodity_monthly`, `mart_regional_spreads`, `mart_wholesale_retail_margins`, `audit_data_anomalies`).
-- [x] **Step 4**: Scaffold the Evidence.dev application inside `ui/` and connect to `agri_ghana.duckdb`.
-- [x] **Step 5**: Develop initial Evidence.dev dashboard pages and test local build.
+- [x] **Step 1**: Update `scripts/ingest_hdx.py` to record execution metrics into `meta_pipeline_runs` (TIMESTAMPTZ, exponential-backoff retry, minimum row integrity floor).
+- [x] **Step 2**: Create `scripts/build_marts.py` containing modular SQL definitions for staging views (`stg_food_prices`, `stg_markets`), dimensional models, analytical marts, and data quality anomaly quarantine.
+- [x] **Step 3**: Validate all views and tables in DuckDB (`stg_food_prices`, `stg_markets`, `dim_markets`, `dim_commodities`, `dim_calendar`, `mart_commodity_monthly`, `mart_regional_spreads`, `mart_wholesale_retail_margins`, `mart_pipeline_health`, `audit_data_anomalies`).
+- [x] **Step 4**: Scaffold the Evidence.dev application inside `ui/` and connect to `agri_ghana.duckdb` via `evidence.config.yaml`.
+- [x] **Step 5**: Develop all 5 Evidence.dev dashboard pages and validate local build.
 - [x] **Step 6**: Configure `vercel.json` with route rewrites and deploy to production on Vercel.
+- [x] **Step 7**: Implement `scripts/test_marts.py` with 28 automated data quality assertions (existence, PK uniqueness, non-null constraints, price positivity, margin integrity, coverage span, canonical `unit_family` labels).
+- [x] **Step 8**: Configure `.github/workflows/data_pipeline_sync.yml` monthly CI/CD workflow: automated HDX download → mart rebuild → 28-check test suite → DuckDB sync → automated PR with Vercel preview for human review before production merge.
