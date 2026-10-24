@@ -98,6 +98,13 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 
 ---
 
+## Documentation & Deliverables
+
+* **Slide Deck:** [MarketPulse Ghana — AmaliTech Capstone Presentation (PDF)](docs/MarketPulse%20Ghana%20%E2%80%94%20AmaliTech%20Capstone%20Presentation.pdf)
+* **Comprehensive Report:** [MarketPulse Ghana — Final Project Report (PDF)](docs/FINAL_PROJECT_REPORT.pdf)
+
+---
+
 ## Repository Structure
 
 ```
@@ -109,6 +116,8 @@ marketpulse-ghana/
 ├── data/
 │   └── raw/                             # Downloaded source CSVs from HDX
 ├── docs/
+│   ├── FINAL_PROJECT_REPORT.pdf         # Comprehensive capstone project report
+│   ├── MarketPulse Ghana — AmaliTech Capstone Presentation.pdf # Capstone presentation slide deck
 │   ├── PROJECT_PLAN.md                  # Comprehensive analytics engineering roadmap
 │   ├── DATA_DICTIONARY.md               # Complete column-level data dictionary & schema catalog
 │   └── images/                          # Visual dashboard artifacts and platform screenshots
