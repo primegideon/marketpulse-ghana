@@ -26,26 +26,41 @@ The platform implements an automated, local-first analytics engineering pipeline
 ┌─────────────────────────────────┐
 │     DuckDB Ingestion Layer      │  raw_wfp_prices (39,038 records)
 │      (agri_ghana.duckdb)        │  raw_wfp_markets (93 market reference rows)
-└────────────────┬────────────────┘  meta_pipeline_runs (Operational audit trail)
-                 │
+└────────────────┬────────────────┘  raw_wfp_prices_previous (snapshot)
+                 │                   meta_pipeline_runs (Operational audit trail, TIMESTAMPTZ)
                  ▼ scripts/build_marts.py
 ┌─────────────────────────────────┐
-│     DuckDB Analytical Marts     │  • dim_commodities & dim_markets
-│      (SQL Transformation)       │  • mart_commodity_monthly (YoY / MoM / per-KG)
-└────────────────┬────────────────┘  • mart_regional_spreads & mart_wholesale_retail_margins
+│     Staging Views               │  stg_food_prices (unit normalization, per-kg, unit_family)
+│      (Data Hygiene & Typing)    │  stg_markets (Title Case regions, coordinate casting)
+└────────────────┬────────────────┘
                  │
+                 ▼
+┌─────────────────────────────────┐
+│     Dimensional Models          │  dim_commodities (26-crop catalog, packaging units)
+│                                 │  dim_markets (44 nodes, market_tier taxonomy, activity stats)
+└────────────────┬────────────────┘  dim_calendar (211 months, agricultural_season encoding)
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│     DuckDB Analytical Marts     │  • mart_commodity_monthly (YoY / MoM / per-KG / moving avg)
+│      (SQL Transformation)       │  • mart_regional_spreads (per-kg spatial price differentials)
+└────────────────┬────────────────┘  • mart_wholesale_retail_margins (MEDIAN-aggregated, verified)
+                 │                   • mart_pipeline_health (Evidence.dev pipeline observability)
+                 │                   • audit_data_anomalies (quarantined irregular records)
                  ▼ ui/ (Evidence.dev)
 ┌─────────────────────────────────┐
-│      Evidence.dev Dashboard     │  Static serverless analytical web app
+│      Evidence.dev Dashboard     │  Static serverless analytical web app — 5 pages
 │        (Hosted on Vercel)       │  Sub-second query execution, zero cloud database costs
 └─────────────────────────────────┘
 ```
 
-1. **Automated Ingestion (`scripts/ingest_hdx.py`)**: Retrieves the latest food prices and market reference CSVs directly from the Humanitarian Data Exchange (HDX), loads them into [`agri_ghana.duckdb`](agri_ghana.duckdb), preserves previous snapshots, and logs operational execution metrics into `meta_pipeline_runs`.
-2. **Analytical Mart Modeling (`scripts/build_marts.py`)**: Generates staging views, dimensional models, and analytical marts with normalized per-kilogram pricing, temporal lags, spatial spread calculations, and margin quality filters in under one second.
-3. **Exploration & Quality Assurance**: In-depth profiling, data auditing, anomaly detection, and seasonality analysis are maintained in [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb).
-4. **Presentation Layer (`ui/`)**: A multi-page [Evidence.dev](https://evidence.dev/) web application compiled statically into client-side Arrow/Parquet bundles and deployed globally on Vercel.
-5. **Automated Continuous Ingestion (`.github/workflows/data_pipeline_sync.yml`)**: A monthly GitHub Actions workflow that detects new HDX data releases, recalculates analytical marts, and opens an automated Pull Request with a Vercel preview deployment for review before merging to `main`.
+1. **Automated Ingestion (`scripts/ingest_hdx.py`)**: Retrieves the latest food prices and market reference CSVs directly from the Humanitarian Data Exchange (HDX). Features exponential-backoff retry logic (3 attempts), a minimum row integrity floor to catch truncated downloads, idempotent snapshot preservation (`raw_wfp_prices_previous`), and UTC TIMESTAMPTZ operational audit logging into `meta_pipeline_runs`.
+2. **Staging Layer (`scripts/build_marts.py`)**: Builds two staging views — `stg_food_prices` (unit parsing, `unit_family` canonical classification, per-KG normalization, Title Case region mapping) and `stg_markets` (coordinate casting, administrative normalization).
+3. **Dimensional Modeling (`scripts/build_marts.py`)**: Three dimensional views — `dim_commodities` (26-crop catalog with packaging unit inventories), `dim_markets` (44 market nodes with `market_tier` taxonomy and activity statistics), and `dim_calendar` (211 months with `agricultural_season` encoding: Lean Season, Major Harvest, Post-Harvest, Minor Season).
+4. **Analytical Mart Modeling (`scripts/build_marts.py`)**: Four analytical marts — `mart_commodity_monthly` (DATEDIFF-validated MoM/YoY growth, moving averages, per-KG medians), `mart_regional_spreads` (per-KG spatial price differentials), `mart_wholesale_retail_margins` (MEDIAN-aggregated trade markups with `is_verified_margin` quality flag), `mart_pipeline_health` (Evidence.dev-facing audit view). Plus `audit_data_anomalies` quarantine governance view.
+5. **Exploration & Quality Assurance**: In-depth profiling, data auditing, anomaly detection, and seasonality analysis maintained in [`notebooks/exploratory_data_analysis.ipynb`](notebooks/exploratory_data_analysis.ipynb).
+6. **Presentation Layer (`ui/`)**: A multi-page [Evidence.dev](https://evidence.dev/) web application with five pages (index, commodities, markets, margins, governance) compiled statically into client-side Arrow/Parquet bundles and deployed globally on Vercel.
+7. **Automated Continuous Ingestion (`.github/workflows/data_pipeline_sync.yml`)**: A monthly GitHub Actions workflow that detects new HDX data releases, recalculates all analytical marts, runs the 28-check data quality assertion suite, and **opens an automated Pull Request with a Vercel preview deployment** for human review before merging to `main`.
 
 ---
 
@@ -58,12 +73,15 @@ Over 17 years (2006–2023) of standardized commodity monitoring across Ghana's 
    * In 2022–2023, rapid Cedi depreciation coupled with global fuel inflation precipitated unprecedented price surges exceeding **65% YoY** across core staples (Maize, Rice, Cassava). Because price series are denominated in **Nominal GHS**, analysts should note that monetary depreciation explains the bulk of post-2021 upward momentum rather than sudden harvest failures.
 
 2. **Spatial Transit Friction & Asymmetric Spreads**:
-   * Bulky, perishable commodities with high weight-to-value ratios (Yam, Cassava) exhibit the widest regional spreads (up to **+40% in coastal sink markets like Accra** relative to surplus production hubs in Brong Ahafo and Northern regions), driven directly by diesel and transit logistics costs.
+   * Bulky, perishable commodities with high weight-to-value ratios (Yam, Cassava) exhibit the widest regional spreads (up to **+40% in coastal sink markets like Accra** relative to surplus production hubs in Brong-Ahafo and Northern regions), driven directly by diesel and transit logistics costs.
    * Grains with high storability (Maize, Millet) exhibit tighter spatial integration across secondary regional markets.
+   * The `mart_regional_spreads` mart provides per-kilogram spread metrics (`spread_to_national_per_kg`, `spread_to_national_per_kg_pct`) for any commodity, market, and time period.
 
 3. **Agro-Ecological Seasonality & Procurement Windows**:
-   * **Bimodal South**: Major harvest in August–September reliably depresses prices; minor harvest in November provides a secondary cushion.
-   * **Unimodal North**: Single harvest in October–November. The annual **"Lean Season" (May–July)** represents the annual peak in grain prices as farm granaries deplete ahead of new crops. Commercial aggregators optimizing procurement achieve 20–35% lower cost bases by purchasing during September–October harvest gluts.
+   * **Bimodal South**: Major harvest in August–September reliably depresses prices (`agricultural_season = 'Major Harvest'`); minor harvest in November provides a secondary cushion.
+   * **Unimodal North**: Single harvest in October–November. The annual **"Lean Season" (May–July)** (`agricultural_season = 'Lean Season'`) represents the annual peak in grain prices as farm granaries deplete ahead of new crops.
+   * Commercial aggregators optimizing procurement achieve 20–35% lower cost bases by purchasing during September–October harvest gluts.
+   * Ghana's agro-ecological season phases are encoded directly into `dim_calendar.agricultural_season` for queryable, domain-aware analysis.
 
 ---
 
@@ -74,7 +92,7 @@ The dataset is sourced from the [WFP Ghana Food Prices dataset on HDX](https://d
 * **Database Engine**: [DuckDB](https://duckdb.org/) (`agri_ghana.duckdb`)
 * **Total Ingested Observations**: 39,038 food price records across 93 market nodes
 * **Temporal Coverage**: January 2006 – July 2023 (211 consecutive months)
-* **Geographical Coverage**: 44 monitored commercial and rural markets spanning all 10 administrative regions (anchored to Ghana's 10 historical regions to preserve longitudinal spatial continuity)
+* **Geographical Coverage**: 44 monitored commercial and rural markets spanning all 10 administrative regions. The WFP monitoring program uses Ghana's **10 legacy regional boundaries** (pre-2018 referenda) to preserve 17-year longitudinal spatial continuity. Modern Ghana has 16 regions (the 2018 referenda split Brong Ahafo, Northern, Volta, and Western each into sub-regions), but standardizing to the 10 historical boundaries avoids statistical breaks in the time series.
 * **Commodity Scope**: 26 primary staple crops and food commodities (Cereals, Tubers, Pulses, Vegetables, Animal Proteins)
 * **Price Classifications**: Wholesale commercial bulk containers and Retail consumer checkout levels denominated in Ghanaian Cedis (GHS) and USD equivalents
 
@@ -97,7 +115,7 @@ marketpulse-ghana/
 ├── scripts/
 │   ├── ingest_hdx.py                    # Automated HDX downloader & DuckDB ingestor
 │   ├── build_marts.py                   # Dimensional models and analytical marts builder
-│   └── test_marts.py                    # Automated 27-check data contract & quality assertion suite
+│   └── test_marts.py                    # Automated 28-check data contract & quality assertion suite
 ├── notebooks/
 │   └── exploratory_data_analysis.ipynb  # Core data profiling, audit, and market analysis
 ├── ui/                                  # Evidence.dev analytical web application
@@ -153,9 +171,11 @@ python scripts/ingest_hdx.py
 # 2. Build dimensional tables and analytical marts
 python scripts/build_marts.py
 
-# 3. Run automated 27-check data quality assertion suite
+# 3. Run automated 28-check data quality assertion suite
 python scripts/test_marts.py
 ```
+
+> **Note**: The 28-check assertion suite exits with code `1` on any failure, blocking bad data from the CI/CD pipeline.
 
 ### 2. Run the Evidence Web Dashboard Locally
 
@@ -187,7 +207,7 @@ MarketPulse Ghana executes analytical queries in the browser using **DuckDB-WASM
 
 ## Machine Learning Archive
 
-Earlier predictive modeling experiments targeting 1-month-ahead wholesale maize price forecasting with XGBoost and walk-forward cross-validation have been preserved in [`archive/ml/`](archive/ml/). When analytical reporting is established, predictive models can be reintroduced as a downstream forecast mart. Refer to [`archive/ml/README.md`](archive/ml/README.md) for complete details.
+Earlier predictive modeling experiments targeting 1-month-ahead wholesale maize price forecasting with XGBoost and 9-fold walk-forward cross-validation have been preserved in [`archive/ml/`](archive/ml/). Wholesale maize was selected as the pilot commodity for its 209-month continuous coverage — the longest unbroken time series in the dataset. The holdout test period (January 2022 – June 2023) was deliberately set during the peak currency depreciation window to stress-test the model under maximum out-of-sample volatility. A formal [`archive/ml/INFERENCE_PROTOCOL.md`](archive/ml/INFERENCE_PROTOCOL.md) defines the full downstream contract for reading from `mart_commodity_monthly`, generating predictions with 95% confidence intervals, and writing results back to DuckDB for Evidence.dev visualization. Refer to [`archive/ml/README.md`](archive/ml/README.md) for the complete modeling runbook.
 
 ---
 

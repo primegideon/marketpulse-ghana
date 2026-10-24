@@ -52,7 +52,7 @@ archive/ml/
 
 When re-incorporating predictive capabilities into the live analytics stack:
 
-1. **Source Connection**: Ingest directly from `agri_ghana.duckdb` table `raw_wfp_prices` rather than static CSV exports.
+1. **Source Connection**: Ingest directly from `agri_ghana.duckdb` view `mart_commodity_monthly` (clean, calendar-validated, per-kg standardized monthly aggregates) rather than raw CSV exports or the raw ingestion table.
 2. **Feature Extraction**: Execute the transformation pipeline in [`notebooks/preprocessing_and_feature_engineering.ipynb`](file:///c:/Users/qwarm/Desktop/marketpulse-ghana/archive/ml/notebooks/preprocessing_and_feature_engineering.ipynb) or refactor into a dbt/DuckDB SQL feature transformation layer.
 3. **Model Scoring**: Load [`models/xgboost_maize_wholesale.json`](file:///c:/Users/qwarm/Desktop/marketpulse-ghana/archive/ml/models/xgboost_maize_wholesale.json) with `xgboost.Booster()` and generate forward-looking projections.
 4. **Publishing Inferences**: Write forecasts back into DuckDB as an analytical view (`marts.fct_maize_price_forecasts`), enabling direct visualization in the Evidence.dev frontend.

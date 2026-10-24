@@ -136,7 +136,7 @@ Price dynamics across Ghana are governed by distinct agro-climatic rainfall regi
    * [DuckDB](https://duckdb.org/) embedded columnar database powering zero-copy local analytics.
    * Automated SQL marts generate normalized pricing per kilogram, calendar-aware temporal lags, spatial spreads, and quarantined anomaly layers.
 3. **Data Quality & Testing**:
-   * Automated regression test suite (`scripts/test_marts.py`) verifying 27 data contracts, composite primary keys, price non-negativity, and margin validity before each CI/CD deployment.
+   * Automated regression test suite (`scripts/test_marts.py`) verifying 28 data contracts — including canonical `unit_family` label validation, composite primary keys, price non-negativity, and margin validity — before each CI/CD deployment.
    * Complete schema catalog documented in the [Data Dictionary](https://github.com/primegideon/marketpulse-ghana/blob/main/docs/DATA_DICTIONARY.md).
 4. **Presentation Layer**:
    * Built with [Evidence.dev](https://evidence.dev/) compiled statically into WebAssembly and client-side Parquet for sub-second page loads on Vercel.
