@@ -42,7 +42,7 @@ SELECT
     price_type,
     median_price_ghs_per_kg
 FROM agri_ghana.mart_commodity_monthly
-WHERE commodity = 'Maize (white)'
+WHERE commodity = 'Maize'
   AND price_type = 'Wholesale'
   AND raw_unit = '100 KG'
 ORDER BY date ASC;
@@ -62,7 +62,7 @@ The forecast script outputs a structured projection table in DuckDB:
 | `forecast_date` | `DATE` | No | Date when inference was generated (`YYYY-MM-01`). | `2026-10-01` |
 | `target_date` | `DATE` | No | Projected target month (`YYYY-MM-01`). | `2026-11-01` |
 | `horizon_months` | `INTEGER` | No | Forecast lead time (`1` to `3` months ahead). | `1` |
-| `commodity` | `VARCHAR` | No | Forecasted commodity. | `Maize (white)` |
+| `commodity` | `VARCHAR` | No | Forecasted commodity. | `Maize` |
 | `predicted_price_ghs_per_kg` | `DOUBLE` | No | Point forecast from tuned XGBoost booster. | `5.45` |
 | `lower_ci_95` | `DOUBLE` | No | 95% prediction interval lower bound. | `4.82` |
 | `upper_ci_95` | `DOUBLE` | No | 95% prediction interval upper bound. | `6.08` |
@@ -93,7 +93,7 @@ SELECT
     CAST(NULL AS DOUBLE)    AS upper_ci,
     'Historical Actual'     AS series_type
 FROM agri_ghana.mart_commodity_monthly
-WHERE commodity = 'Maize (white)' AND raw_unit = '100 KG' AND price_type = 'Wholesale'
+WHERE commodity = 'Maize' AND raw_unit = '100 KG' AND price_type = 'Wholesale'
 
 UNION ALL
 
@@ -106,6 +106,6 @@ SELECT
     upper_ci_95             AS upper_ci,
     'Projected Forecast'    AS series_type
 FROM agri_ghana.mart_maize_forecasts
-WHERE commodity = 'Maize (white)'
+WHERE commodity = 'Maize'
 ORDER BY date ASC;
 ```

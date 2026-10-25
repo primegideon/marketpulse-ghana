@@ -311,7 +311,7 @@ END AS agricultural_season
 | `retail_price_per_kg` | `DOUBLE` | No | Median observed retail price per kilogram in GHS. Minimum floor: `0.20 GHS/kg`. | `4.10` |
 | `margin_per_kg_ghs` | `DOUBLE` | No | Gross margin per kilogram: `retail_price_per_kg - wholesale_price_per_kg`. | `0.90` |
 | `retail_markup_pct` | `DOUBLE` | Yes | Commercial trade markup percentage: `((retail - wholesale) / wholesale) * 100`. `NULL` when `wholesale_price_per_kg = 0`. | `28.13` |
-| `is_verified_margin` | `BOOLEAN` | No | Quality assertion flag. `TRUE` strictly when `retail_price_per_kg >= wholesale_price_per_kg` AND `retail_markup_pct <= 200%`. `FALSE` for inverted (retail < wholesale) or extreme markup anomalies. The 21.6% of WFP paired records that fail this rule (e.g. farmgate unpeeled bulk vs. retail checkout) are quarantined into `audit_data_anomalies`. | `TRUE` |
+| `is_verified_margin` | `BOOLEAN` | No | Quality assertion flag. `TRUE` strictly when `retail_price_per_kg >= wholesale_price_per_kg` AND `retail_markup_pct <= 200%`. `FALSE` for inverted (retail < wholesale) or extreme markup anomalies. Paired records that fail this rule (21.7% due to margin inversions where retail < wholesale, plus 16.6% due to extreme markups > 200%, totaling 38.3% of paired records) are quarantined into `audit_data_anomalies`. | `TRUE` |
 
 ---
 

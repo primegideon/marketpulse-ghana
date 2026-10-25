@@ -68,7 +68,7 @@ ORDER BY commodity, market
 
 ### Median Retail Markup Across Commodities
 
-> **Data Quality Rule**: Evaluated over verified paired market observations (`-30%` to `+200%` retail markup). Unverified field records (e.g. bulk unpeeled cassava roots from farmgate vs consumer retail checkout) are quarantined in `audit_data_anomalies`.
+> **Data Quality Rule**: Evaluated over verified paired market observations (positive markups between `0%` and `+200%`). Unverified field records (such as inverted margins where retail is lower than wholesale, or markups exceeding 200%) are quarantined in `audit_data_anomalies`.
 
 <BarChart
   data={margin_overview}
