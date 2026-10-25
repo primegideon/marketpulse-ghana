@@ -86,7 +86,7 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
     con.execute("""
         CREATE OR REPLACE VIEW stg_food_prices AS
         SELECT
-            DATE_TRUNC('month', date::DATE)                               AS date,
+            DATE_TRUNC('month', date::DATE)::DATE                         AS date,
             year(date::DATE)                                              AS calendar_year,
             month(date::DATE)                                             AS calendar_month,
             strftime(date::DATE, '%B')                                    AS month_name,
