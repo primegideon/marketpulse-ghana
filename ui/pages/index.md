@@ -75,9 +75,10 @@ SELECT
     mom_pct_change,
     yoy_pct_change
 FROM agri_ghana.mart_commodity_monthly
-WHERE commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Plantains', 'Yam')
+WHERE commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Yam')
   AND price_type = 'Wholesale'
   AND (commodity != 'Yam' OR raw_unit = '250 KG')
+  AND (commodity != 'Rice (local)' OR raw_unit = '50 KG')
 ORDER BY date, commodity
 ```
 
@@ -108,7 +109,7 @@ SELECT
     ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
     markets_reporting
 FROM agri_ghana.mart_commodity_monthly
-WHERE commodity IN ('Maize', 'Rice (imported)', 'Cassava', 'Yam', 'Tomatoes')
+WHERE commodity IN ('Maize', 'Rice (imported)', 'Cassava', 'Yam', 'Tomatoes (local)')
 ORDER BY date DESC, commodity
 LIMIT 15
 ```
@@ -168,7 +169,7 @@ LIMIT 15
 
   <Tab label="Commercial Unit Prices (Bags & Sacks)">
 
-> **Bulk Trading Units**: Maize (100 KG sack), Cassava (91 KG sack), Imported Rice (50 KG bag), Yam (250 KG crate / 100 tubers). Prices reflect full bulk commercial containers in Ghana Cedis.
+> **Bulk Trading Units**: Maize (100 KG sack), Cassava (91 KG sack), Imported Rice (50 KG bag), Local Rice (50 KG bag), Yam (250 KG crate). Prices reflect full bulk commercial containers in Ghana Cedis.
 
 <LineChart
   data={staple_trends}
