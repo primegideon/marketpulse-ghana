@@ -8,6 +8,12 @@ title: Commodity Explorer
 
 ---
 
+```sql category_options
+SELECT DISTINCT category AS value, category AS label
+FROM agri_ghana.dim_commodities
+ORDER BY category
+```
+
 ```sql commodity_inventory
 SELECT
     commodity,
@@ -23,17 +29,19 @@ ORDER BY category, commodity
 
 ```sql normalized_per_kg_trends
 SELECT
-    date,
-    year_month,
-    commodity,
-    price_type,
-    ROUND(MEDIAN(median_price_ghs_per_kg), 2) AS median_price_ghs_per_kg
-FROM agri_ghana.mart_commodity_monthly
-WHERE median_price_ghs_per_kg IS NOT NULL
-  AND price_type = 'Wholesale'
-  AND commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Cowpeas', 'Millet', 'Sorghum')
-GROUP BY date, year_month, commodity, price_type
-ORDER BY date, commodity
+    m.date,
+    m.year_month,
+    m.commodity,
+    m.price_type,
+    ROUND(MEDIAN(m.median_price_ghs_per_kg), 2) AS median_price_ghs_per_kg
+FROM agri_ghana.mart_commodity_monthly m
+JOIN agri_ghana.dim_commodities c ON m.commodity = c.commodity
+WHERE m.median_price_ghs_per_kg IS NOT NULL
+  AND m.price_type = 'Wholesale'
+  AND m.commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Cowpeas', 'Millet', 'Sorghum')
+  AND ('{selected_category}' = 'All' OR c.category = '{selected_category}')
+GROUP BY m.date, m.year_month, m.commodity, m.price_type
+ORDER BY m.date, m.commodity
 ```
 
 ```sql cereal_comparison
@@ -51,19 +59,25 @@ ORDER BY date
 
 ```sql latest_prices_table
 SELECT
-    commodity,
-    category,
-    raw_unit,
-    price_type,
-    median_price_ghs_per_kg,
-    median_price_ghs,
-    ROUND(mom_pct_change / 100.0, 4) AS mom_pct,
-    ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
-    markets_reporting
-FROM agri_ghana.mart_commodity_monthly
-WHERE date = (SELECT MAX(date) FROM agri_ghana.mart_commodity_monthly)
-ORDER BY category, commodity, price_type
+    m.commodity,
+    m.category,
+    m.raw_unit,
+    m.price_type,
+    m.median_price_ghs_per_kg,
+    m.median_price_ghs,
+    ROUND(m.mom_pct_change / 100.0, 4) AS mom_pct,
+    ROUND(m.yoy_pct_change / 100.0, 4) AS yoy_pct,
+    m.markets_reporting
+FROM agri_ghana.mart_commodity_monthly m
+JOIN agri_ghana.dim_commodities c ON m.commodity = c.commodity
+WHERE m.date = (SELECT MAX(date) FROM agri_ghana.mart_commodity_monthly)
+  AND ('{selected_category}' = 'All' OR c.category = '{selected_category}')
+ORDER BY m.category, m.commodity, m.price_type
 ```
+
+<Dropdown data={category_options} name=selected_category defaultValue="All" title="Filter by Food Category">
+    <DropdownOption value="All" valueLabel="All Categories" />
+</Dropdown>
 
 ## Normalized Wholesale Prices (GHS per Kilogram)
 

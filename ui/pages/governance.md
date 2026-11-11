@@ -126,6 +126,55 @@ Price dynamics across Ghana are governed by distinct agro-climatic rainfall regi
 
 ---
 
+## Exchange Rate History (Implied GHS/USD)
+
+```sql exchange_rate_history
+SELECT
+    date,
+    year_month,
+    implied_ghs_per_usd,
+    observations
+FROM agri_ghana.dim_exchange_rates
+ORDER BY date
+```
+
+The implied exchange rate is derived from the **dual-currency WFP dataset** — each commodity observation contains both a GHS price and a USD price, allowing us to back-calculate the implicit GHS/USD conversion rate that was used at survey time. This provides a cross-validated historical exchange rate series derived purely from market survey data.
+
+<LineChart
+  data={exchange_rate_history}
+  x=date
+  y=implied_ghs_per_usd
+  yFmt="#,##0.0000"
+  title="Implied GHS/USD Exchange Rate (from WFP Market Survey Data)"
+  subtitle="Median GHS/USD rate implied by dual-currency commodity price observations — reflects prevailing interbank rates at survey time"
+  xAxisTitle="Date"
+  yAxisTitle="GHS per 1 USD"
+/>
+
+> **Methodology**: The implied rate is computed as `MEDIAN(price_ghs / price_usd)` across all commodity observations in each monthly period, filtered to records where both prices are positive. This cross-validates against official Bank of Ghana exchange rate publications.
+
+---
+
+## REST / JSON Price API
+
+MarketPulse Ghana exposes a lightweight JSON API endpoint for programmatic access to price metadata:
+
+| Endpoint | Description |
+|---|---|
+| `/api/prices` | Returns API documentation and metadata |
+| `/api/prices?commodity=Maize` | Filter response by commodity name |
+
+The API is served as a **Vercel Edge Function** (`ui/api/prices.js`) with CORS enabled and a 1-hour cache TTL. For full historical data access, the DuckDB mart schema is documented in the [Data Dictionary](https://github.com/primegideon/marketpulse-ghana/blob/main/docs/DATA_DICTIONARY.md).
+
+```
+GET https://<deployment-url>/api/prices
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+Cache-Control: public, max-age=3600
+```
+
+---
+
 ## Data Provenance & Technical Architecture
 
 1. **Source Registry**:

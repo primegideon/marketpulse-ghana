@@ -107,7 +107,8 @@ SELECT
     median_price_ghs,
     ROUND(mom_pct_change / 100.0, 4) AS mom_pct,
     ROUND(yoy_pct_change / 100.0, 4) AS yoy_pct,
-    markets_reporting
+    markets_reporting,
+    price_signal
 FROM agri_ghana.mart_commodity_monthly
 WHERE commodity IN ('Maize', 'Rice (imported)', 'Cassava', 'Yam', 'Tomatoes (local)')
 ORDER BY date DESC, commodity
@@ -214,6 +215,7 @@ LIMIT 15
   <Column id="mom_pct" title="MoM" fmt="+0.0%;-0.0%;0.0%" />
   <Column id="yoy_pct" title="YoY" fmt="+0.0%;-0.0%;0.0%" />
   <Column id="markets_reporting" title="Markets" />
+  <Column id="price_signal" title="Signal" />
 </DataTable>
 
   </Tab>
@@ -222,3 +224,13 @@ LIMIT 15
 ---
 
 > **Source**: World Food Programme (WFP) Humanitarian Data Exchange (HDX). Data processed through DuckDB analytical marts.
+
+---
+
+## Explore the Dashboard
+
+| Page | Description |
+|------|-------------|
+| [Market Geography](/markets) | BubbleMap of price spreads across 44 markets, regional comparisons, and market tier breakdowns |
+| [Commodity Explorer](/commodities) | Per-kilogram normalized price trends, cereal comparisons, and commodity catalog |
+| [Agricultural Seasons](/seasons) | Seasonal price cycles across Ghana's 4 agricultural seasons, lean season premium analysis |
