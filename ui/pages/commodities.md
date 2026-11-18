@@ -39,7 +39,7 @@ JOIN agri_ghana.dim_commodities c ON m.commodity = c.commodity
 WHERE m.median_price_ghs_per_kg IS NOT NULL
   AND m.price_type = 'Wholesale'
   AND m.commodity IN ('Maize', 'Rice (imported)', 'Rice (local)', 'Cassava', 'Cowpeas', 'Millet', 'Sorghum')
-  AND ('{selected_category}' = 'All' OR c.category = '{selected_category}')
+  AND ('${inputs.selected_category.value}' = 'All' OR c.category = '${inputs.selected_category.value}')
 GROUP BY m.date, m.year_month, m.commodity, m.price_type
 ORDER BY m.date, m.commodity
 ```
@@ -71,7 +71,7 @@ SELECT
 FROM agri_ghana.mart_commodity_monthly m
 JOIN agri_ghana.dim_commodities c ON m.commodity = c.commodity
 WHERE m.date = (SELECT MAX(date) FROM agri_ghana.mart_commodity_monthly)
-  AND ('{selected_category}' = 'All' OR c.category = '{selected_category}')
+  AND ('${inputs.selected_category.value}' = 'All' OR c.category = '${inputs.selected_category.value}')
 ORDER BY m.category, m.commodity, m.price_type
 ```
 

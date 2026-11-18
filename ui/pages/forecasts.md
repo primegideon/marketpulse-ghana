@@ -11,10 +11,7 @@ title: Price Forecasts
 ```sql stitched_series
 SELECT
     date,
-    median_price_ghs_per_kg      AS actual_price,
-    CAST(NULL AS DOUBLE)         AS forecast_price,
-    CAST(NULL AS DOUBLE)         AS lower_ci,
-    CAST(NULL AS DOUBLE)         AS upper_ci,
+    median_price_ghs_per_kg      AS price,
     'Historical Actual'          AS series_type
 FROM agri_ghana.mart_commodity_monthly
 WHERE commodity = 'Maize'
@@ -26,10 +23,7 @@ UNION ALL
 
 SELECT
     target_date                  AS date,
-    CAST(NULL AS DOUBLE)         AS actual_price,
-    predicted_price_ghs_per_kg   AS forecast_price,
-    lower_ci_95                  AS lower_ci,
-    upper_ci_95                  AS upper_ci,
+    predicted_price_ghs_per_kg   AS price,
     'Projected Forecast'         AS series_type
 FROM agri_ghana.mart_maize_forecasts
 WHERE commodity = 'Maize'
@@ -96,7 +90,7 @@ WHERE commodity = 'Maize' AND horizon_months = 1
 <LineChart
   data={stitched_series}
   x=date
-  y={["actual_price", "forecast_price"]}
+  y=price
   series=series_type
   yFmt="#,##0.00"
   title="Maize Wholesale Price — Historical & Forecast (GHS/KG)"

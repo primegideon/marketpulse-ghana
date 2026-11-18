@@ -166,12 +166,12 @@ MarketPulse Ghana exposes a lightweight JSON API endpoint for programmatic acces
 
 The API is served as a **Vercel Edge Function** (`ui/api/prices.js`) with CORS enabled and a 1-hour cache TTL. For full historical data access, the DuckDB mart schema is documented in the [Data Dictionary](https://github.com/primegideon/marketpulse-ghana/blob/main/docs/DATA_DICTIONARY.md).
 
-```
-GET https://<deployment-url>/api/prices
+<pre>
+GET https://&lt;deployment-url&gt;/api/prices
 Content-Type: application/json
 Access-Control-Allow-Origin: *
 Cache-Control: public, max-age=3600
-```
+</pre>
 
 ---
 

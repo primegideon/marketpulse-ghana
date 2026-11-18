@@ -91,30 +91,53 @@ GROUP BY commodity
 ORDER BY lean_premium_pct DESC
 ```
 
+```sql maize_lean_metrics
+SELECT
+    commodity,
+    MAX(CASE WHEN agricultural_season = 'Lean Season' THEN avg_price_per_kg END) AS lean_price,
+    MAX(CASE WHEN agricultural_season = 'Major Harvest' THEN avg_price_per_kg END) AS harvest_price,
+    ROUND(
+        (MAX(CASE WHEN agricultural_season = 'Lean Season' THEN avg_price_per_kg END) -
+         MAX(CASE WHEN agricultural_season = 'Major Harvest' THEN avg_price_per_kg END)) /
+        NULLIF(MAX(CASE WHEN agricultural_season = 'Major Harvest' THEN avg_price_per_kg END), 0) * 100.0,
+        1
+    ) AS lean_premium_pct
+FROM (
+    SELECT
+        c.agricultural_season,
+        m.commodity,
+        ROUND(AVG(m.median_price_ghs_per_kg), 2) AS avg_price_per_kg
+    FROM agri_ghana.mart_commodity_monthly m
+    JOIN agri_ghana.dim_calendar c ON m.date = c.date
+    WHERE m.price_type = 'Wholesale'
+      AND m.median_price_ghs_per_kg IS NOT NULL
+      AND m.commodity = 'Maize'
+    GROUP BY c.agricultural_season, m.commodity
+)
+GROUP BY commodity
+```
+
 ## Lean Season Price Premium (Key Staples)
 
 <BigValue
-  data={lean_season_premium}
+  data={maize_lean_metrics}
   value=lean_premium_pct
   title="Maize Lean Season Premium (%)"
   fmt="0.0"
-  row=0
 />
 
 <BigValue
-  data={lean_season_premium}
+  data={maize_lean_metrics}
   value=lean_price
   title="Maize Lean Season Price (GHS/KG)"
   fmt="#,##0.00"
-  row=0
 />
 
 <BigValue
-  data={lean_season_premium}
+  data={maize_lean_metrics}
   value=harvest_price
   title="Maize Harvest Price (GHS/KG)"
   fmt="#,##0.00"
-  row=0
 />
 
 > **Lean Season Premium**: The percentage by which Lean Season prices exceed Major Harvest prices. Higher premiums indicate greater food security risk and opportunity for strategic grain reserves.

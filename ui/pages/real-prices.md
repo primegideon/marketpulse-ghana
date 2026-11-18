@@ -25,6 +25,29 @@ WHERE commodity = 'Maize'
 ORDER BY date
 ```
 
+```sql nominal_real_overlay
+SELECT
+    date,
+    median_price_ghs_per_kg AS price,
+    'Nominal Price'         AS price_type
+FROM agri_ghana.mart_commodity_monthly_real
+WHERE commodity = 'Maize'
+  AND price_type = 'Wholesale'
+  AND raw_unit = '100 KG'
+
+UNION ALL
+
+SELECT
+    date,
+    real_price_ghs_per_kg   AS price,
+    'Real Price (2015 Base)' AS price_type
+FROM agri_ghana.mart_commodity_monthly_real
+WHERE commodity = 'Maize'
+  AND price_type = 'Wholesale'
+  AND raw_unit = '100 KG'
+ORDER BY date
+```
+
 ```sql latest_real_prices
 SELECT
     commodity,
@@ -41,11 +64,12 @@ ORDER BY commodity, price_type
 ```
 
 ```sql cpi_series
-SELECT
-    year,
+SELECT DISTINCT
+    EXTRACT(year FROM date)::INTEGER AS year,
     cpi_index,
-    base_year
-FROM agri_ghana.dim_cpi_ghana
+    2015 AS base_year
+FROM agri_ghana.mart_commodity_monthly_real
+WHERE cpi_index IS NOT NULL
 ORDER BY year
 ```
 
@@ -93,13 +117,13 @@ After deflating by the Ghana CPI (base year 2015 = 100), real prices show the **
 ### Nominal vs Real Price Comparison — Maize Wholesale
 
 <LineChart
-  data={real_vs_nominal}
+  data={nominal_real_overlay}
   x=date
-  y={["nominal_price_ghs_per_kg", "real_price_ghs_per_kg"]}
+  y=price
+  series=price_type
   yFmt="#,##0.00"
   title="Maize — Nominal vs Real Price (GHS/KG)"
   subtitle="Gap between lines represents the cumulative inflation premium embedded in nominal prices"
-  labels=true
   xAxisTitle="Date"
   yAxisTitle="GHS per KG"
 />
