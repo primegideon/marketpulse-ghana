@@ -8,6 +8,13 @@ title: Market Geography
 
 ---
 
+```sql tier_options
+SELECT DISTINCT market_tier AS value, market_tier AS label
+FROM agri_ghana.dim_markets
+WHERE total_observations > 0
+ORDER BY market_tier
+```
+
 ```sql market_summary
 SELECT
     market,
@@ -25,26 +32,51 @@ WHERE total_observations > 0
 ORDER BY total_observations DESC
 ```
 
+```sql map_data
+WITH latest_period AS (
+    SELECT MAX(date) AS max_date FROM agri_ghana.mart_regional_spreads
+)
+SELECT
+    r.market,
+    r.region,
+    m.latitude,
+    m.longitude,
+    r.spread_to_national_pct,
+    r.market_median_ghs_per_kg,
+    m.market_tier
+FROM agri_ghana.mart_regional_spreads r
+JOIN agri_ghana.dim_markets m ON r.market = m.market
+WHERE r.date = (SELECT max_date FROM latest_period)
+  AND r.commodity = 'Maize'
+  AND r.raw_unit = '100 KG'
+  AND r.price_type = 'Wholesale'
+  AND m.latitude IS NOT NULL
+  AND m.longitude IS NOT NULL
+  AND ('${inputs.selected_tier.value}' = 'All' OR m.market_tier = '${inputs.selected_tier.value}')
+ORDER BY r.market_median_ghs_per_kg DESC
+```
+
 ```sql maize_regional_spreads
 WITH latest_period AS (
     SELECT MAX(date) AS max_date FROM agri_ghana.mart_regional_spreads
 )
 SELECT
-    region,
-    market,
-    market_median_ghs,
-    national_median_ghs,
-    spread_to_national_ghs,
-    ROUND(spread_to_national_pct / 100.0, 4) AS spread_to_national_pct,
-    market_median_ghs_per_kg,
-    national_median_ghs_per_kg,
-    spread_to_national_per_kg
-FROM agri_ghana.mart_regional_spreads
-WHERE date = (SELECT max_date FROM latest_period)
-  AND commodity = 'Maize'
-  AND raw_unit = '100 KG'
-  AND price_type = 'Wholesale'
-ORDER BY spread_to_national_pct DESC
+    r.region,
+    r.market,
+    r.market_median_ghs,
+    r.national_median_ghs,
+    r.spread_to_national_ghs,
+    ROUND(r.spread_to_national_pct / 100.0, 4) AS spread_to_national_pct,
+    r.market_median_ghs_per_kg,
+    m.market_tier
+FROM agri_ghana.mart_regional_spreads r
+JOIN agri_ghana.dim_markets m ON r.market = m.market
+WHERE r.date = (SELECT max_date FROM latest_period)
+  AND r.commodity = 'Maize'
+  AND r.raw_unit = '100 KG'
+  AND r.price_type = 'Wholesale'
+  AND ('${inputs.selected_tier.value}' = 'All' OR m.market_tier = '${inputs.selected_tier.value}')
+ORDER BY r.spread_to_national_pct DESC
 ```
 
 ```sql regional_price_comparison
@@ -52,14 +84,16 @@ WITH latest_period AS (
     SELECT MAX(date) AS max_date FROM agri_ghana.mart_regional_spreads
 )
 SELECT
-    region,
-    ROUND(AVG(market_median_ghs_per_kg), 2) AS regional_avg_price_per_kg,
-    COUNT(DISTINCT market) AS active_markets
-FROM agri_ghana.mart_regional_spreads
-WHERE date = (SELECT max_date FROM latest_period)
-  AND commodity = 'Maize'
-  AND price_type = 'Wholesale'
-GROUP BY region
+    r.region,
+    ROUND(AVG(r.market_median_ghs_per_kg), 2) AS regional_avg_price_per_kg,
+    COUNT(DISTINCT r.market) AS active_markets
+FROM agri_ghana.mart_regional_spreads r
+JOIN agri_ghana.dim_markets m ON r.market = m.market
+WHERE r.date = (SELECT max_date FROM latest_period)
+  AND r.commodity = 'Maize'
+  AND r.price_type = 'Wholesale'
+  AND ('${inputs.selected_tier.value}' = 'All' OR m.market_tier = '${inputs.selected_tier.value}')
+GROUP BY r.region
 ORDER BY regional_avg_price_per_kg DESC
 ```
 
@@ -73,6 +107,30 @@ WHERE total_observations > 0
 GROUP BY market_tier
 ORDER BY total_observations DESC
 ```
+
+<Dropdown data={tier_options} name=selected_tier defaultValue="All" title="Filter by Market Tier">
+    <DropdownOption value="All" valueLabel="All Tiers" />
+</Dropdown>
+
+## Maize Price Spread Across Ghana Markets
+
+<BubbleMap
+  data={map_data}
+  lat=latitude
+  long=longitude
+  size=market_median_ghs_per_kg
+  value=market_median_ghs_per_kg
+  pointName=market
+  startingLat=7.95
+  startingLong=-1.02
+  startingZoom=6
+  title="Maize Price Spread Across Ghana Markets"
+  subtitle="Bubble size reflects wholesale maize price per kilogram (GHS/KG) across monitoring markets"
+/>
+
+> **Reading the map**: Larger bubbles indicate markets that deviate most from the national benchmark price. Markets above the national median (positive spread) typically reflect higher transport costs or supply constraints. Markets with negative spreads are often major production surplus zones.
+
+---
 
 ## Wholesale Maize Price Disparities vs National Median
 

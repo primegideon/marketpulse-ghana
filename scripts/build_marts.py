@@ -11,7 +11,6 @@ import datetime
 import logging
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -170,6 +169,33 @@ def build_staging_layer(con: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def build_cpi_layer(con: duckdb.DuckDBPyConnection) -> None:
+    """Build Ghana CPI dimension table for real price deflation."""
+    logger.info("Building Ghana CPI dimension: dim_cpi_ghana")
+
+    # Ghana CPI data (annual averages, base year 2015=100)
+    # Source: World Bank / Ghana Statistical Service estimates
+    cpi_data = [
+        (2006, 36.2), (2007, 42.1), (2008, 55.8), (2009, 68.4),
+        (2010, 75.1), (2011, 83.6), (2012, 90.4), (2013, 97.2),
+        (2014, 105.8), (2015, 100.0), (2016, 117.5), (2017, 129.8),
+        (2018, 141.3), (2019, 152.7), (2020, 163.5), (2021, 180.4),
+        (2022, 234.8), (2023, 285.1), (2024, 312.4), (2025, 338.7),
+    ]
+
+    con.execute("""
+        CREATE OR REPLACE TABLE dim_cpi_ghana (
+            year INTEGER,
+            cpi_index DOUBLE,
+            base_year INTEGER DEFAULT 2015
+        )
+    """)
+    con.executemany(
+        "INSERT INTO dim_cpi_ghana (year, cpi_index) VALUES (?, ?)",
+        cpi_data
+    )
+
+
 def build_dimension_layer(con: duckdb.DuckDBPyConnection) -> None:
     """Build dimensional tables and views for markets, commodities, and calendar."""
     logger.info("Building dimensional views: dim_markets, dim_commodities, dim_calendar")
@@ -227,6 +253,20 @@ def build_dimension_layer(con: duckdb.DuckDBPyConnection) -> None:
             MAX(date)                                                     AS last_recorded_date
         FROM stg_food_prices
         GROUP BY commodity_id, commodity, category
+    """)
+
+    # Exchange rates dimension: implied GHS/USD from WFP dual-currency data
+    con.execute("""
+        CREATE OR REPLACE VIEW dim_exchange_rates AS
+        SELECT
+            year_month,
+            date,
+            ROUND(MEDIAN(price_ghs / NULLIF(price_usd, 0)), 4) AS implied_ghs_per_usd,
+            COUNT(*) AS observations
+        FROM stg_food_prices
+        WHERE price_ghs > 0 AND price_usd > 0
+        GROUP BY year_month, date
+        ORDER BY date
     """)
 
     # Calendar dimension covering Ghana agricultural seasons
@@ -347,7 +387,25 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
                 WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
                     ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
                 ELSE NULL
-            END                                                           AS yoy_pct_change
+            END                                                           AS yoy_pct_change,
+            CASE
+                WHEN CASE
+                    WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
+                        ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
+                    ELSE NULL
+                END > 30.0 THEN 'Critical Inflation'
+                WHEN CASE
+                    WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
+                        ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
+                    ELSE NULL
+                END > 15.0 THEN 'Elevated Pressure'
+                WHEN CASE
+                    WHEN prev_12_date IS NOT NULL AND DATEDIFF('day', prev_12_date, date) BETWEEN 350 AND 380 AND raw_prev_year_price_ghs > 0 THEN
+                        ROUND(((median_price_ghs - raw_prev_year_price_ghs) / raw_prev_year_price_ghs) * 100.0, 2)
+                    ELSE NULL
+                END < -10.0 THEN 'Price Relief'
+                ELSE 'Stable'
+            END                                                           AS price_signal
         FROM lagged_metrics
     """)
 
@@ -512,6 +570,72 @@ def build_marts_layer(con: duckdb.DuckDBPyConnection) -> None:
         WHERE price_ghs_per_kg > 100.0 OR price_ghs_per_kg < 0.05
     """)
 
+    # Mart: CPI-adjusted real prices (deflated to 2015 GHS base year)
+    con.execute("""
+        CREATE OR REPLACE VIEW mart_commodity_monthly_real AS
+        SELECT
+            m.year_month,
+            m.date,
+            m.category,
+            m.commodity,
+            m.raw_unit,
+            m.price_type,
+            m.median_price_ghs,
+            m.median_price_ghs_per_kg,
+            c.cpi_index,
+            base_cpi.cpi_index AS base_cpi_index,
+            ROUND(m.median_price_ghs_per_kg / (c.cpi_index / base_cpi.cpi_index), 2) AS real_price_ghs_per_kg,
+            ROUND(m.median_price_ghs / (c.cpi_index / base_cpi.cpi_index), 2) AS real_price_ghs,
+            m.yoy_pct_change,
+            m.mom_pct_change
+        FROM mart_commodity_monthly m
+        LEFT JOIN dim_cpi_ghana c ON year(m.date) = c.year
+        CROSS JOIN (SELECT cpi_index FROM dim_cpi_ghana WHERE year = 2015) base_cpi
+        WHERE m.median_price_ghs_per_kg IS NOT NULL
+    """)
+
+    # Mart: Market connectivity/price integration score by commodity
+    con.execute("""
+        CREATE OR REPLACE VIEW mart_market_connectivity AS
+        WITH spread_variance AS (
+            SELECT
+                commodity,
+                price_type,
+                year_month,
+                STDDEV(spread_to_national_pct) AS spread_std,
+                AVG(ABS(spread_to_national_pct)) AS avg_abs_spread,
+                COUNT(DISTINCT market) AS n_markets
+            FROM mart_regional_spreads
+            WHERE spread_to_national_pct IS NOT NULL
+            GROUP BY commodity, price_type, year_month
+        ),
+        commodity_connectivity AS (
+            SELECT
+                commodity,
+                price_type,
+                ROUND(AVG(spread_std), 2) AS avg_spread_volatility,
+                ROUND(AVG(avg_abs_spread), 2) AS avg_abs_deviation,
+                ROUND(AVG(n_markets), 1) AS avg_markets_reporting,
+                ROUND(100.0 - LEAST(AVG(avg_abs_spread), 100.0), 1) AS connectivity_score
+            FROM spread_variance
+            GROUP BY commodity, price_type
+        )
+        SELECT
+            commodity,
+            price_type,
+            avg_spread_volatility,
+            avg_abs_deviation,
+            avg_markets_reporting,
+            connectivity_score,
+            CASE
+                WHEN connectivity_score >= 80 THEN 'High Integration'
+                WHEN connectivity_score >= 60 THEN 'Moderate Integration'
+                ELSE 'Low Integration'
+            END AS integration_tier
+        FROM commodity_connectivity
+        ORDER BY connectivity_score DESC
+    """)
+
 
 def execute_build(db_path: Path) -> Dict[str, Any]:
     """Execute the full data transformation and marts build workflow."""
@@ -525,6 +649,7 @@ def execute_build(db_path: Path) -> Dict[str, Any]:
     try:
         build_staging_layer(con)
         build_dimension_layer(con)
+        build_cpi_layer(con)
         build_marts_layer(con)
 
         # Verification metrics
@@ -534,9 +659,13 @@ def execute_build(db_path: Path) -> Dict[str, Any]:
             "dim_markets",
             "dim_commodities",
             "dim_calendar",
+            "dim_exchange_rates",
+            "dim_cpi_ghana",
             "mart_commodity_monthly",
             "mart_regional_spreads",
             "mart_wholesale_retail_margins",
+            "mart_commodity_monthly_real",
+            "mart_market_connectivity",
             "mart_pipeline_health",
             "audit_data_anomalies",
         ]

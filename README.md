@@ -42,14 +42,17 @@ The platform implements an automated, local-first analytics engineering pipeline
                  │
                  ▼
 ┌─────────────────────────────────┐
-│     DuckDB Analytical Marts     │  • mart_commodity_monthly (YoY / MoM / per-KG / moving avg)
+│     DuckDB Analytical Marts     │  • mart_commodity_monthly (YoY / MoM / per-KG / price_signal)
 │      (SQL Transformation)       │  • mart_regional_spreads (per-kg spatial price differentials)
 └────────────────┬────────────────┘  • mart_wholesale_retail_margins (MEDIAN-aggregated, verified)
+                 │                   • mart_commodity_monthly_real (CPI-deflated to 2015 base)
+                 │                   • mart_maize_forecasts (XGBoost 3-month recursive projection)
+                 │                   • mart_market_connectivity (Spatial price integration scores)
                  │                   • mart_pipeline_health (Evidence.dev pipeline observability)
                  │                   • audit_data_anomalies (quarantined irregular records)
                  ▼ ui/ (Evidence.dev)
 ┌─────────────────────────────────┐
-│      Evidence.dev Dashboard     │  Static serverless analytical web app — 5 pages
+│      Evidence.dev Dashboard     │  Static serverless analytical web app — 8 interactive pages
 │        (Hosted on Vercel)       │  Sub-second query execution, zero cloud database costs
 └─────────────────────────────────┘
 ```
@@ -123,17 +126,24 @@ marketpulse-ghana/
 │   └── images/                          # Visual dashboard artifacts and platform screenshots
 ├── scripts/
 │   ├── ingest_hdx.py                    # Automated HDX downloader & DuckDB ingestor
-│   ├── build_marts.py                   # Dimensional models and analytical marts builder
-│   └── test_marts.py                    # Automated 28-check data contract & quality assertion suite
+│   ├── build_marts.py                   # Dimensional models, CPI layer, and analytical marts builder
+│   ├── forecast_maize.py                # XGBoost 3-month recursive price forecasting pipeline
+│   ├── conftest.py                      # Pytest session fixture for read-only DuckDB assertions
+│   └── test_marts.py                    # Automated 24-check data contract & quality pytest suite
 ├── notebooks/
 │   └── exploratory_data_analysis.ipynb  # Core data profiling, audit, and market analysis
 ├── ui/                                  # Evidence.dev analytical web application
+│   ├── api/
+│   │   └── prices.js                    # Vercel Edge Function — public price metadata JSON API
 │   ├── pages/
 │   │   ├── index.md                     # National Food Price Pulse & KPIs
 │   │   ├── commodities.md               # Commodity Explorer & Normalized Per-KG Affordability
-│   │   ├── markets.md                   # Market Geography & Regional Disparities
+│   │   ├── markets.md                   # Market Geography, Ghana BubbleMap & Tier Disparities
 │   │   ├── margins.md                   # Wholesale vs. Retail Trade Markups
-│   │   └── governance.md                # Pipeline Observability & Audit Log
+│   │   ├── forecasts.md                 # XGBoost 3-Month Forward Projections & 95% Confidence Intervals
+│   │   ├── real-prices.md               # Inflation-Adjusted (CPI-Deflated) Real Price Series
+│   │   ├── seasons.md                   # Agro-Ecological Seasons & Lean Season Premium Analysis
+│   │   └── governance.md                # Pipeline Observability, Exchange Rates & Audit Log
 │   ├── sources/agri_ghana/              # DuckDB source queries and connection configs
 │   ├── package.json                     # Node.js dependencies and build scripts
 │   └── vercel.json                      # Vercel deployment and cache revalidation configuration

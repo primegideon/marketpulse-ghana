@@ -37,9 +37,13 @@ jobs:
         run: |
           python scripts/build_marts.py
 
-      - name: Run Data Quality Assertion Suite
+      - name: Run ML Forecasting (XGBoost Maize)
         run: |
-          python scripts/test_marts.py
+          python scripts/forecast_maize.py
+
+      - name: Run Data Quality Tests
+        run: |
+          pytest scripts/test_marts.py -v
 
       - name: Synchronize UI DuckDB Data Source
         run: |
